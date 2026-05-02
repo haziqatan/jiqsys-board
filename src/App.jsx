@@ -10,6 +10,7 @@ import {
   updateCard,
   deleteCard,
   createConnector,
+  updateConnector,
   deleteConnector,
 } from './lib/db'
 import { DEFAULT_BOARD_ID, supabase } from './lib/supabase'
@@ -79,6 +80,9 @@ export default function App() {
               if (prev.find((c) => c.id === payload.new.id)) return prev
               return [...prev, payload.new]
             }
+            if (payload.eventType === 'UPDATE') {
+              return prev.map((c) => (c.id === payload.new.id ? { ...c, ...payload.new } : c))
+            }
             if (payload.eventType === 'DELETE') {
               return prev.filter((c) => c.id !== payload.old.id)
             }
@@ -136,17 +140,26 @@ export default function App() {
   )
 
   const handleCreateConnector = useCallback(
-    async (sourceId, targetId) => {
+    async (sourceId, targetId, opts = {}) => {
       if (!sourceId || !targetId || sourceId === targetId) return
       const exists = connectors.find(
         (c) => c.source_card_id === sourceId && c.target_card_id === targetId,
       )
       if (exists) return
-      const conn = await createConnector(boardId, sourceId, targetId)
+      const conn = await createConnector(boardId, sourceId, targetId, opts)
       setConnectors((prev) => [...prev.filter((c) => c.id !== conn.id), conn])
     },
     [boardId, connectors],
   )
+
+  const handleUpdateConnector = useCallback(async (id, patch) => {
+    setConnectors((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)))
+    try {
+      await updateConnector(id, patch)
+    } catch (e) {
+      console.error(e)
+    }
+  }, [])
 
   const handleDeleteConnector = useCallback(async (id) => {
     setConnectors((prev) => prev.filter((c) => c.id !== id))
@@ -180,6 +193,7 @@ export default function App() {
         onUpdateCard={handleUpdateCard}
         onDeleteCard={handleDeleteCard}
         onCreateConnector={handleCreateConnector}
+        onUpdateConnector={handleUpdateConnector}
         onDeleteConnector={handleDeleteConnector}
         tool={tool}
         setTool={setTool}

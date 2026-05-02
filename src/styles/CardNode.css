@@ -1,14 +1,18 @@
 .card-node {
   position: absolute;
   background: #fff;
-  border: 1.5px solid #e3e6ec;
+  border: 1px solid #e3e6ec;
   border-radius: 12px;
   overflow: hidden;
   cursor: grab;
   transition: box-shadow 120ms ease, border-color 120ms ease;
 }
 .card-node:active { cursor: grabbing; }
-.card-node.selected { z-index: 5; }
+.card-node.selected {
+  z-index: 5;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
+}
 
 .card-color-bar {
   height: 4px;

@@ -57,14 +57,26 @@ export async function deleteCard(id) {
   if (error) throw error
 }
 
-export async function createConnector(boardId, sourceId, targetId) {
+export async function createConnector(boardId, sourceId, targetId, opts = {}) {
   const { data, error } = await supabase
     .from('connectors')
     .insert({
       board_id: boardId,
       source_card_id: sourceId,
       target_card_id: targetId,
+      ...opts,
     })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function updateConnector(id, patch) {
+  const { data, error } = await supabase
+    .from('connectors')
+    .update(patch)
+    .eq('id', id)
     .select()
     .single()
   if (error) throw error

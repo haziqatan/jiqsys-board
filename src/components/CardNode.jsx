@@ -91,8 +91,6 @@ export default function CardNode({
         top: card.y,
         width: card.width,
         height: card.height,
-        borderColor: selected ? card.color : '#e3e6ec',
-        boxShadow: selected ? `0 0 0 2px ${card.color}` : undefined,
       }}
       onMouseDown={(e) => {
         if (editingTitle) return
@@ -155,10 +153,10 @@ export default function CardNode({
 
       {showHandles && (
         <>
-          <div className="link-handle top" onMouseDown={onStartLink} />
-          <div className="link-handle right" onMouseDown={onStartLink} />
-          <div className="link-handle bottom" onMouseDown={onStartLink} />
-          <div className="link-handle left" onMouseDown={onStartLink} />
+          <div className="link-handle top" onMouseDown={(e) => onStartLink(e, 'top')} />
+          <div className="link-handle right" onMouseDown={(e) => onStartLink(e, 'right')} />
+          <div className="link-handle bottom" onMouseDown={(e) => onStartLink(e, 'bottom')} />
+          <div className="link-handle left" onMouseDown={(e) => onStartLink(e, 'left')} />
         </>
       )}
 

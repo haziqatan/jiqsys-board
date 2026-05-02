@@ -1,26 +1,123 @@
-function centerOf(card) {
-  return { x: card.x + card.width / 2, y: card.y + card.height / 2 }
+import { useId } from 'react'
+
+function rectCenter(r) {
+  return { x: r.x + r.width / 2, y: r.y + r.height / 2 }
 }
 
-function edgePoint(card, target) {
-  const c = centerOf(card)
-  const dx = target.x - c.x
-  const dy = target.y - c.y
-  const halfW = card.width / 2
-  const halfH = card.height / 2
-  if (dx === 0 && dy === 0) return c
-  const sx = dx === 0 ? Infinity : Math.abs(halfW / dx)
-  const sy = dy === 0 ? Infinity : Math.abs(halfH / dy)
-  const s = Math.min(sx, sy)
-  return { x: c.x + dx * s, y: c.y + dy * s }
+function pickAnchor(rect, otherCenter, forcedSide) {
+  const c = rectCenter(rect)
+  let side = forcedSide
+  if (!side) {
+    const dx = otherCenter.x - c.x
+    const dy = otherCenter.y - c.y
+    if (Math.abs(dx) * rect.height >= Math.abs(dy) * rect.width) {
+      side = dx >= 0 ? 'right' : 'left'
+    } else {
+      side = dy >= 0 ? 'bottom' : 'top'
+    }
+  }
+  switch (side) {
+    case 'right':
+      return { x: rect.x + rect.width, y: c.y, side }
+    case 'left':
+      return { x: rect.x, y: c.y, side }
+    case 'top':
+      return { x: c.x, y: rect.y, side }
+    case 'bottom':
+    default:
+      return { x: c.x, y: rect.y + rect.height, side: 'bottom' }
+  }
 }
 
-function orthogonalPath(a, b) {
-  const midX = (a.x + b.x) / 2
-  return `M ${a.x} ${a.y} L ${midX} ${a.y} L ${midX} ${b.y} L ${b.x} ${b.y}`
+function isHorizontal(side) {
+  return side === 'left' || side === 'right'
+}
+
+function orthogonalPath(s, t) {
+  const sH = isHorizontal(s.side)
+  const tH = isHorizontal(t.side)
+  if (sH && tH) {
+    const midX = (s.x + t.x) / 2
+    return `M ${s.x} ${s.y} L ${midX} ${s.y} L ${midX} ${t.y} L ${t.x} ${t.y}`
+  }
+  if (!sH && !tH) {
+    const midY = (s.y + t.y) / 2
+    return `M ${s.x} ${s.y} L ${s.x} ${midY} L ${t.x} ${midY} L ${t.x} ${t.y}`
+  }
+  if (sH && !tH) {
+    return `M ${s.x} ${s.y} L ${t.x} ${s.y} L ${t.x} ${t.y}`
+  }
+  return `M ${s.x} ${s.y} L ${s.x} ${t.y} L ${t.x} ${t.y}`
+}
+
+function straightPath(s, t) {
+  return `M ${s.x} ${s.y} L ${t.x} ${t.y}`
+}
+
+function segmentIntersect(p1, p2, p3, p4) {
+  const x1 = p1.x, y1 = p1.y, x2 = p2.x, y2 = p2.y
+  const x3 = p3.x, y3 = p3.y, x4 = p4.x, y4 = p4.y
+  const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+  if (Math.abs(denom) < 1e-6) return null
+  const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom
+  const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denom
+  if (t > 0.05 && t < 0.95 && u > 0.05 && u < 0.95) {
+    return { x: x1 + t * (x2 - x1), y: y1 + t * (y2 - y1) }
+  }
+  return null
+}
+
+function straightPathWithJumps(s, t, otherSegments, radius = 6) {
+  if (!otherSegments?.length) return straightPath(s, t)
+  const intersections = []
+  for (const seg of otherSegments) {
+    const p = segmentIntersect(s, t, seg.a, seg.b)
+    if (p) intersections.push(p)
+  }
+  if (!intersections.length) return straightPath(s, t)
+  const dx = t.x - s.x
+  const dy = t.y - s.y
+  const len = Math.hypot(dx, dy)
+  if (len < 1) return straightPath(s, t)
+  const ux = dx / len
+  const uy = dy / len
+  intersections.sort((a, b) => {
+    const ta = (a.x - s.x) * ux + (a.y - s.y) * uy
+    const tb = (b.x - s.x) * ux + (b.y - s.y) * uy
+    return ta - tb
+  })
+  let d = `M ${s.x} ${s.y}`
+  for (const p of intersections) {
+    const before = { x: p.x - ux * radius, y: p.y - uy * radius }
+    const after = { x: p.x + ux * radius, y: p.y + uy * radius }
+    d += ` L ${before.x} ${before.y}`
+    d += ` A ${radius} ${radius} 0 0 1 ${after.x} ${after.y}`
+  }
+  d += ` L ${t.x} ${t.y}`
+  return d
+}
+
+function curvedPath(s, t) {
+  const sH = isHorizontal(s.side)
+  const tH = isHorizontal(t.side)
+  const dist = Math.max(40, Math.hypot(t.x - s.x, t.y - s.y) * 0.4)
+  const c1 = sH
+    ? { x: s.x + (s.side === 'right' ? dist : -dist), y: s.y }
+    : { x: s.x, y: s.y + (s.side === 'bottom' ? dist : -dist) }
+  const c2 = tH
+    ? { x: t.x + (t.side === 'right' ? dist : -dist), y: t.y }
+    : { x: t.x, y: t.y + (t.side === 'bottom' ? dist : -dist) }
+  return `M ${s.x} ${s.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${t.x} ${t.y}`
+}
+
+function dashArray(style, thickness) {
+  if (style === 'dashed') return `${thickness * 4} ${thickness * 3}`
+  if (style === 'dotted') return `${thickness} ${thickness * 2}`
+  return undefined
 }
 
 export default function Connector({
+  conn,
   source,
   target,
   targetPoint,
@@ -28,19 +125,39 @@ export default function Connector({
   ghost = false,
   selected = false,
   onSelect,
+  crossingSegments = [],
 }) {
-  const targetCenter = target ? centerOf(target) : targetPoint
-  const sourceCenter = centerOf(source)
-  const a = edgePoint(source, targetCenter)
-  const b = target ? edgePoint(target, sourceCenter) : targetPoint
+  const uid = useId()
+  const arrowId = `arrow-${uid}`
+  const sourceCenter = rectCenter(source)
+  const targetCenter = target ? rectCenter(target) : targetPoint
+  const s = pickAnchor(source, targetCenter, conn?.source_side)
+  const t = target
+    ? pickAnchor(target, sourceCenter, conn?.target_side)
+    : { ...targetPoint, side: 'left' }
 
-  const A = { x: a.x + offset.x, y: a.y + offset.y }
-  const B = { x: b.x + offset.x, y: b.y + offset.y }
+  const S = { ...s, x: s.x + offset.x, y: s.y + offset.y }
+  const T = { ...t, x: t.x + offset.x, y: t.y + offset.y }
 
-  const d = orthogonalPath(A, B)
+  const shape = conn?.shape || 'orthogonal'
+  const style = conn?.style || 'solid'
+  const thickness = conn?.thickness ?? 2
+  const arrowStart = conn?.arrow_start ?? false
+  const arrowEnd = conn?.arrow_end ?? true
+
+  let d
+  if (ghost) d = straightPath(S, T)
+  else if (shape === 'straight') {
+    d = (conn?.line_jumps ?? true)
+      ? straightPathWithJumps(S, T, crossingSegments)
+      : straightPath(S, T)
+  } else if (shape === 'curved') d = curvedPath(S, T)
+  else d = orthogonalPath(S, T)
 
   const stroke = ghost ? '#9ca3af' : selected ? '#3b82f6' : '#1f2330'
-  const dash = ghost ? '6 4' : undefined
+  const strokeWidth = ghost ? 1.6 : thickness
+
+  const dash = dashArray(style, thickness)
 
   return (
     <g
@@ -51,31 +168,37 @@ export default function Connector({
       }}
       style={{ cursor: ghost ? 'default' : 'pointer' }}
     >
-      {!ghost && (
-        <path d={d} fill="none" stroke="transparent" strokeWidth="14" className="connector-hit" />
-      )}
-      <path
-        d={d}
-        fill="none"
-        stroke={stroke}
-        strokeWidth={selected ? 2.5 : 1.8}
-        strokeDasharray={dash}
-        markerEnd={ghost ? undefined : 'url(#arrowhead)'}
-        className="connector-line"
-      />
       <defs>
         <marker
-          id="arrowhead"
+          id={arrowId}
           viewBox="0 0 10 10"
           refX="9"
           refY="5"
-          markerWidth="8"
-          markerHeight="8"
+          markerWidth={Math.max(4, 7 - thickness * 0.4)}
+          markerHeight={Math.max(4, 7 - thickness * 0.4)}
           orient="auto-start-reverse"
         >
           <path d="M 0 0 L 10 5 L 0 10 z" fill={stroke} />
         </marker>
       </defs>
+
+      {!ghost && (
+        <path d={d} fill="none" stroke="transparent" strokeWidth={Math.max(14, thickness + 12)} className="connector-hit" />
+      )}
+      <path
+        d={d}
+        fill="none"
+        stroke={stroke}
+        strokeWidth={strokeWidth}
+        strokeDasharray={dash}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        markerStart={!ghost && arrowStart ? `url(#${arrowId})` : undefined}
+        markerEnd={!ghost && arrowEnd ? `url(#${arrowId})` : undefined}
+        className="connector-line"
+      />
     </g>
   )
 }
+
+export { pickAnchor, rectCenter }
