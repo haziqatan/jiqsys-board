@@ -1,0 +1,73 @@
+.rich-editor {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #e3e6ec;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.editor-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px;
+  background: #f8f9fb;
+  border-bottom: 1px solid #e3e6ec;
+}
+
+.toolbar-group {
+  display: flex;
+  gap: 2px;
+  border-right: 1px solid #e3e6ec;
+  padding-right: 4px;
+  margin-right: 2px;
+}
+.toolbar-group:last-child { border-right: none; padding-right: 0; }
+
+.btn-tool {
+  width: 28px;
+  height: 28px;
+  border-radius: 5px;
+  font-size: 13px;
+  color: #4a5568;
+}
+.btn-tool:hover { background: #e3e6ec; }
+.btn-tool.active { background: #1f2330; color: #fff; }
+.btn-tool:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.editor-content {
+  min-height: 160px;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #1f2330;
+  outline: none;
+}
+
+.editor-content .ProseMirror {
+  outline: none;
+  min-height: 140px;
+}
+
+.editor-content .ProseMirror p.is-editor-empty:first-child::before {
+  content: 'Add a description…';
+  color: #a0a8b6;
+  pointer-events: none;
+  height: 0;
+  float: left;
+}
+
+.editor-content ul, .editor-content ol { padding-left: 18px; }
+.editor-content img { max-width: 100%; border-radius: 6px; }
+.editor-content a { color: #3b82f6; text-decoration: underline; }
+
+.editor-content ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+}
+.editor-content ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}

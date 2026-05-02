@@ -1,0 +1,19 @@
+{
+  "name": "Notion-Style Cards for Miro",
+  "description": "Create rich, flexible cards in Miro with Notion-like editing experience",
+  "version": "1.0.0",
+  "sdkVersion": "1.1",
+  "permissions": [
+    "BOARD:READ",
+    "BOARD:WRITE"
+  ],
+  "documentLinks": {
+    "issues": "https://github.com/yourname/miro-card-app/issues"
+  },
+  "homepage": "https://miro.com",
+  "author": {
+    "name": "Your Name",
+    "email": "your@email.com"
+  },
+  "license": "MIT"
+}

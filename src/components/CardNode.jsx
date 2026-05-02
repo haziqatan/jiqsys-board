@@ -1,0 +1,168 @@
+import { useEffect, useRef, useState } from 'react'
+import '../styles/CardNode.css'
+
+const STATUS_COLORS = {
+  'To Do': '#94a3b8',
+  'In Progress': '#3b82f6',
+  Blocked: '#ef4444',
+  Done: '#22c55e',
+}
+
+export default function CardNode({
+  card,
+  selected,
+  hovered,
+  onMouseDown,
+  onDoubleClick,
+  onMouseEnter,
+  onMouseLeave,
+  onStartLink,
+  onResize,
+  onTitleChange,
+}) {
+  const [editingTitle, setEditingTitle] = useState(false)
+  const [draftTitle, setDraftTitle] = useState(card.title)
+  const titleRef = useRef(null)
+  const [resizing, setResizing] = useState(null)
+
+  useEffect(() => {
+    if (!editingTitle) setDraftTitle(card.title)
+  }, [card.title, editingTitle])
+
+  useEffect(() => {
+    if (editingTitle && titleRef.current) {
+      titleRef.current.focus()
+      titleRef.current.select()
+    }
+  }, [editingTitle])
+
+  useEffect(() => {
+    if (!resizing) return
+    const onMove = (e) => {
+      const dx = (e.clientX - resizing.startX) / resizing.zoom
+      const dy = (e.clientY - resizing.startY) / resizing.zoom
+      onResize(
+        Math.max(140, resizing.startW + dx),
+        Math.max(60, resizing.startH + dy),
+      )
+    }
+    const onUp = () => setResizing(null)
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+  }, [resizing, onResize])
+
+  const startResize = (e) => {
+    e.stopPropagation()
+    e.preventDefault()
+    // Find current zoom from the world transform
+    const world = e.currentTarget.closest('.canvas-world')
+    const matrix = window.getComputedStyle(world).transform
+    let zoom = 1
+    if (matrix && matrix !== 'none') {
+      const m = matrix.match(/matrix\(([^,]+),/)
+      if (m) zoom = parseFloat(m[1])
+    }
+    setResizing({
+      startX: e.clientX,
+      startY: e.clientY,
+      startW: card.width,
+      startH: card.height,
+      zoom,
+    })
+  }
+
+  const commitTitle = () => {
+    setEditingTitle(false)
+    if (draftTitle !== card.title) onTitleChange(draftTitle)
+  }
+
+  const statusDot = card.status ? STATUS_COLORS[card.status] || '#94a3b8' : null
+  const showHandles = selected || hovered
+
+  return (
+    <div
+      className={`card-node ${selected ? 'selected' : ''}`}
+      style={{
+        left: card.x,
+        top: card.y,
+        width: card.width,
+        height: card.height,
+        borderColor: selected ? card.color : '#e3e6ec',
+        boxShadow: selected ? `0 0 0 2px ${card.color}` : undefined,
+      }}
+      onMouseDown={(e) => {
+        if (editingTitle) return
+        onMouseDown(e)
+      }}
+      onDoubleClick={(e) => {
+        e.stopPropagation()
+        onDoubleClick()
+      }}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
+      <div className="card-color-bar" style={{ background: card.color }} />
+
+      <div className="card-body">
+        {editingTitle ? (
+          <input
+            ref={titleRef}
+            className="card-title-input"
+            value={draftTitle}
+            onChange={(e) => setDraftTitle(e.target.value)}
+            onBlur={commitTitle}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitTitle()
+              if (e.key === 'Escape') {
+                setDraftTitle(card.title)
+                setEditingTitle(false)
+              }
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+          />
+        ) : (
+          <div
+            className="card-title"
+            onDoubleClick={(e) => {
+              e.stopPropagation()
+              setEditingTitle(true)
+            }}
+          >
+            {card.title || 'Untitled'}
+          </div>
+        )}
+
+        <div className="card-meta">
+          {statusDot && (
+            <span className="card-meta-pill">
+              <span className="dot" style={{ background: statusDot }} />
+              {card.status}
+            </span>
+          )}
+          {card.assignee && <span className="card-meta-pill">@{card.assignee}</span>}
+          {card.estimate != null && card.estimate !== '' && (
+            <span className="card-meta-pill">{card.estimate}p</span>
+          )}
+          {card.tags && card.tags.length > 0 && (
+            <span className="card-meta-pill">#{card.tags[0]}{card.tags.length > 1 ? ` +${card.tags.length - 1}` : ''}</span>
+          )}
+        </div>
+      </div>
+
+      {showHandles && (
+        <>
+          <div className="link-handle top" onMouseDown={onStartLink} />
+          <div className="link-handle right" onMouseDown={onStartLink} />
+          <div className="link-handle bottom" onMouseDown={onStartLink} />
+          <div className="link-handle left" onMouseDown={onStartLink} />
+        </>
+      )}
+
+      {selected && <div className="resize-handle" onMouseDown={startResize} />}
+    </div>
+  )
+}
