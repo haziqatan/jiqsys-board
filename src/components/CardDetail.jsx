@@ -58,16 +58,7 @@ export default function CardDetail({
   const [newAssigneeColor, setNewAssigneeColor] = useState('#8b5cf6')
   const [newTag, setNewTag] = useState('')
   const [newTagColor, setNewTagColor] = useState('#14b8a6')
-  const [expandedSections, setExpandedSections] = useState({
-    color: true,
-    colorBar: true,
-    status: true,
-    assignee: true,
-    estimate: true,
-    startDate: true,
-    endDate: true,
-    tags: true,
-  })
+  const [settingsExpanded, setSettingsExpanded] = useState(true)
 
   const nextMode = () => setMode((m) => MODES[(MODES.indexOf(m) + 1) % MODES.length])
   const NextIcon = MODE_ICONS[MODES[(MODES.indexOf(mode) + 1) % MODES.length]]
@@ -77,9 +68,6 @@ export default function CardDetail({
   const selectedTags = tags || []
 
   const commit = (patch) => onUpdate(patch)
-  const toggleSection = (section) => {
-    setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }))
-  }
   const createAndSelectStatus = () => {
     const option = onCreateStatus(newStatus, newStatusColor)
     if (!option) return
@@ -146,14 +134,19 @@ export default function CardDetail({
         />
       </div>
 
-      <div className="cd-row">
-        <SettingLabel
-          title="Color"
-          section="color"
-          expanded={expandedSections.color}
-          onToggle={toggleSection}
+      <div className="cd-settings-header">
+        <span>Card settings</span>
+        <SectionToggle
+          expanded={settingsExpanded}
+          onClick={() => setSettingsExpanded((value) => !value)}
+          label="card settings"
         />
-        {expandedSections.color && (
+      </div>
+
+      {settingsExpanded && (
+      <div className="cd-settings">
+      <div className="cd-row">
+        <label>Color</label>
           <div className="cd-value">
             <button
               className="cd-color-swatch"
@@ -171,17 +164,10 @@ export default function CardDetail({
               />
             )}
           </div>
-        )}
       </div>
 
       <div className="cd-row">
-        <SettingLabel
-          title="Color bar"
-          section="colorBar"
-          expanded={expandedSections.colorBar}
-          onToggle={toggleSection}
-        />
-        {expandedSections.colorBar && (
+        <label>Color bar</label>
           <div className="cd-bar-picker">
             {COLOR_BAR_STYLES.map((s) => (
               <button
@@ -199,17 +185,10 @@ export default function CardDetail({
               </button>
             ))}
           </div>
-        )}
       </div>
 
       <div className="cd-row">
-        <SettingLabel
-          title="Status"
-          section="status"
-          expanded={expandedSections.status}
-          onToggle={toggleSection}
-        />
-        {expandedSections.status && (
+        <label>Status</label>
           <div className="cd-status-control">
           <div className="cd-status-picker">
             {availableStatusOptions.map((s) => (
@@ -252,17 +231,10 @@ export default function CardDetail({
             }}
           />
         </div>
-        )}
       </div>
 
       <div className="cd-row">
-        <SettingLabel
-          title="Assignee"
-          section="assignee"
-          expanded={expandedSections.assignee}
-          onToggle={toggleSection}
-        />
-        {expandedSections.assignee && (
+        <label>Assignee</label>
           <div className="cd-status-control">
           <div className="cd-status-picker">
             <button
@@ -314,17 +286,10 @@ export default function CardDetail({
             }}
           />
         </div>
-        )}
       </div>
 
       <div className="cd-row">
-        <SettingLabel
-          title="Estimate"
-          section="estimate"
-          expanded={expandedSections.estimate}
-          onToggle={toggleSection}
-        />
-        {expandedSections.estimate && (
+        <label>Estimate</label>
           <input
             className="cd-input"
             type="number"
@@ -333,17 +298,10 @@ export default function CardDetail({
             onChange={(e) => setEstimate(e.target.value)}
             onBlur={() => commit({ estimate: estimate === '' ? null : Number(estimate) })}
           />
-        )}
       </div>
 
       <div className="cd-row">
-        <SettingLabel
-          title="Start Date"
-          section="startDate"
-          expanded={expandedSections.startDate}
-          onToggle={toggleSection}
-        />
-        {expandedSections.startDate && (
+        <label>Start Date</label>
           <input
             className="cd-input"
             type="date"
@@ -353,17 +311,10 @@ export default function CardDetail({
               commit({ start_date: e.target.value || null })
             }}
           />
-        )}
       </div>
 
       <div className="cd-row">
-        <SettingLabel
-          title="End Date"
-          section="endDate"
-          expanded={expandedSections.endDate}
-          onToggle={toggleSection}
-        />
-        {expandedSections.endDate && (
+        <label>End Date</label>
           <input
             className="cd-input"
             type="date"
@@ -373,17 +324,10 @@ export default function CardDetail({
               commit({ end_date: e.target.value || null })
             }}
           />
-        )}
       </div>
 
       <div className="cd-row">
-        <SettingLabel
-          title="Tags"
-          section="tags"
-          expanded={expandedSections.tags}
-          onToggle={toggleSection}
-        />
-        {expandedSections.tags && (
+        <label>Tags</label>
           <div className="cd-status-control">
           <div className="cd-status-picker">
             {tagOptions.map((option) => {
@@ -433,8 +377,9 @@ export default function CardDetail({
             }}
           />
         </div>
-        )}
       </div>
+      </div>
+      )}
 
       <div className="cd-divider" />
 
@@ -446,19 +391,6 @@ export default function CardDetail({
       </div>
     </aside>
     </>
-  )
-}
-
-function SettingLabel({ title, section, expanded, onToggle }) {
-  return (
-    <div className="cd-row-label">
-      <label>{title}</label>
-      <SectionToggle
-        expanded={expanded}
-        onClick={() => onToggle(section)}
-        label={title.toLowerCase()}
-      />
-    </div>
   )
 }
 

@@ -133,6 +133,24 @@
   display: flex;
   align-items: center;
 }
+.cd-settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 30px;
+  margin-top: 4px;
+  padding: 4px 0;
+  border-top: 1px solid var(--border);
+}
+.cd-settings-header span {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.cd-settings {
+  display: flex;
+  flex-direction: column;
+}
 .cd-row-label {
   display: flex;
   align-items: center;
