@@ -13,6 +13,7 @@ const isDetailCard = (card) => (card?.node_shape || 'rect') === 'rect'
 export default function Canvas({
   cards,
   connectors,
+  statusOptions,
   selectedId,
   onSelect,
   onOpenDetail,
@@ -342,6 +343,7 @@ export default function Canvas({
             onStartLink={(e, side) => startLink(e, card, side)}
             onResize={(w, h) => onUpdateCard(card.id, { width: w, height: h })}
             onTitleChange={(t) => onUpdateCard(card.id, { title: t })}
+            statusOptions={statusOptions}
           />
         ))}
       </div>

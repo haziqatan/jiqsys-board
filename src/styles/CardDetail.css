@@ -269,8 +269,77 @@
   border-radius: 999px;
   flex-shrink: 0;
 }
-.cd-status-input {
-  max-width: 220px;
+.cd-status-library {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 2px;
+}
+.cd-status-editor,
+.cd-status-add {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) 28px 28px;
+  align-items: center;
+  gap: 6px;
+}
+.cd-status-add {
+  grid-template-columns: minmax(0, 1fr) 28px 28px;
+  padding-top: 2px;
+}
+.cd-status-editor.active .cd-status-name {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+.cd-status-select {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 140ms var(--ease);
+}
+.cd-status-select:hover {
+  background: var(--surface-2);
+}
+.cd-status-select span {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 2px #fff, 0 0 0 3px var(--border);
+}
+.cd-status-name {
+  min-width: 0;
+  width: 100%;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  font-size: 13px;
+  outline: none;
+}
+.cd-status-name:hover {
+  background: var(--surface-2);
+}
+.cd-status-name:focus {
+  background: #fff;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.cd-status-color {
+  width: 28px;
+  height: 28px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  cursor: pointer;
+}
+.cd-status-editor .cd-icon-btn:first-child:hover,
+.cd-status-add .cd-icon-btn:first-child:hover {
+  background: var(--surface-2);
+  color: var(--text);
 }
 
 select.cd-input {

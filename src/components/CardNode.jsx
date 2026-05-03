@@ -45,6 +45,7 @@ export default function CardNode({
   onStartLink,
   onResize,
   onTitleChange,
+  statusOptions,
 }) {
   const nodeShape = card.node_shape || 'rect'
   const [editingTitle, setEditingTitle] = useState(false)
@@ -262,7 +263,7 @@ export default function CardNode({
   }
 
   // ── RECT CARD ────────────────────────────────────────────────────────
-  const statusDot = card.status ? getStatusColor(card.status) : null
+  const statusDot = card.status ? getStatusColor(card.status, statusOptions) : null
 
   return (
     <div

@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import RichTextEditor from './RichTextEditor'
 import ColorPicker from './ColorPicker'
 import TagManager from './TagManager'
-import { IconClose, IconTrash, IconPanelLeft, IconModal, IconExpandFull } from './Icons'
-import { getStatusOptions, normalizeStatus } from '../lib/status'
+import { IconClose, IconTrash, IconPanelLeft, IconModal, IconExpandFull, IconPlus } from './Icons'
+import { getStatusOptions, normalizeStatus, getStatusColor } from '../lib/status'
 import '../styles/CardDetail.css'
 
 const COLOR_BAR_STYLES = [
@@ -15,7 +15,16 @@ const MODES = ['side', 'modal', 'fullscreen']
 const MODE_ICONS = { side: IconPanelLeft, modal: IconModal, fullscreen: IconExpandFull }
 const MODE_TITLES = { side: 'Side panel', modal: 'Centered modal', fullscreen: 'Full screen' }
 
-export default function CardDetail({ card, onUpdate, onDelete, onClose }) {
+export default function CardDetail({
+  card,
+  statusOptions,
+  onUpdate,
+  onCreateStatus,
+  onUpdateStatus,
+  onDeleteStatus,
+  onDelete,
+  onClose,
+}) {
   const [mode, setMode] = useState('side')
   const [title, setTitle] = useState(card.title)
   const [color, setColor] = useState(card.color)
@@ -27,17 +36,22 @@ export default function CardDetail({ card, onUpdate, onDelete, onClose }) {
   const [endDate, setEndDate] = useState(card.end_date || '')
   const [tags, setTags] = useState(card.tags || [])
   const [showColor, setShowColor] = useState(false)
+  const [newStatus, setNewStatus] = useState('')
+  const [newStatusColor, setNewStatusColor] = useState('#0ea5e9')
 
   const nextMode = () => setMode((m) => MODES[(MODES.indexOf(m) + 1) % MODES.length])
   const NextIcon = MODE_ICONS[MODES[(MODES.indexOf(mode) + 1) % MODES.length]]
   const normalizedStatus = normalizeStatus(status)
-  const statusOptions = getStatusOptions(normalizedStatus)
+  const availableStatusOptions = getStatusOptions(normalizedStatus, statusOptions)
+  const editableStatusOptions = statusOptions.filter((option) => option.value)
 
   const commit = (patch) => onUpdate(patch)
-  const commitStatus = () => {
-    const nextStatus = normalizeStatus(status)
-    setStatus(nextStatus)
-    commit({ status: nextStatus })
+  const createAndSelectStatus = () => {
+    const option = onCreateStatus(newStatus, newStatusColor)
+    if (!option) return
+    setNewStatus('')
+    setStatus(option.value)
+    commit({ status: option.value })
   }
 
   return (
@@ -120,7 +134,7 @@ export default function CardDetail({ card, onUpdate, onDelete, onClose }) {
         <label>Status</label>
         <div className="cd-status-control">
           <div className="cd-status-picker">
-            {statusOptions.map((s) => (
+            {availableStatusOptions.map((s) => (
               <button
                 key={s.label}
                 type="button"
@@ -133,17 +147,56 @@ export default function CardDetail({ card, onUpdate, onDelete, onClose }) {
               </button>
             ))}
           </div>
-          <input
-            className="cd-input cd-status-input"
-            placeholder="Custom status"
-            value={status || ''}
-            onChange={(e) => setStatus(e.target.value)}
-            onBlur={commitStatus}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') e.target.blur()
-              if (e.key === 'Escape') setStatus(card.status || null)
-            }}
-          />
+          <div className="cd-status-library">
+            {editableStatusOptions.map((option) => (
+              <StatusOptionEditor
+                key={option.id}
+                option={option}
+                selected={normalizedStatus === option.value}
+                onSelect={() => { setStatus(option.value); commit({ status: option.value }) }}
+                onUpdate={(patch) => {
+                  const nextStatus = onUpdateStatus(option.id, patch)
+                  if (normalizedStatus === option.value && nextStatus) {
+                    setStatus(nextStatus)
+                    commit({ status: nextStatus })
+                  }
+                }}
+                onDelete={() => {
+                  if (normalizedStatus === option.value) {
+                    setStatus(null)
+                    commit({ status: null })
+                  }
+                  onDeleteStatus(option.id)
+                }}
+              />
+            ))}
+          </div>
+          <div className="cd-status-add">
+            <input
+              className="cd-input"
+              placeholder="New status"
+              value={newStatus}
+              onChange={(e) => setNewStatus(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') createAndSelectStatus()
+              }}
+            />
+            <input
+              className="cd-status-color"
+              type="color"
+              value={newStatusColor}
+              onChange={(e) => setNewStatusColor(e.target.value)}
+              title="Status color"
+            />
+            <button
+              className="cd-icon-btn"
+              type="button"
+              title="Add status"
+              onClick={createAndSelectStatus}
+            >
+              <IconPlus />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -217,5 +270,63 @@ export default function CardDetail({ card, onUpdate, onDelete, onClose }) {
       </div>
     </aside>
     </>
+  )
+}
+
+function StatusOptionEditor({ option, selected, onSelect, onUpdate, onDelete }) {
+  const [label, setLabel] = useState(option.label)
+
+  useEffect(() => {
+    setLabel(option.label)
+  }, [option.label])
+
+  const commitLabel = () => {
+    const nextLabel = normalizeStatus(label)
+    if (!nextLabel) {
+      setLabel(option.label)
+      return
+    }
+    if (nextLabel !== option.label) {
+      const nextStatus = onUpdate({ label: nextLabel })
+      if (!nextStatus) setLabel(option.label)
+    }
+  }
+
+  return (
+    <div className={`cd-status-editor${selected ? ' active' : ''}`}>
+      <button
+        type="button"
+        className="cd-status-select"
+        title="Apply status"
+        onClick={onSelect}
+      >
+        <span style={{ background: getStatusColor(option.value, [option]) }} />
+      </button>
+      <input
+        className="cd-status-name"
+        value={label}
+        onChange={(e) => setLabel(e.target.value)}
+        onBlur={commitLabel}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.target.blur()
+          if (e.key === 'Escape') setLabel(option.label)
+        }}
+      />
+      <input
+        className="cd-status-color"
+        type="color"
+        value={option.color}
+        onChange={(e) => onUpdate({ color: e.target.value })}
+        title="Status color"
+      />
+      <button
+        className="cd-icon-btn"
+        type="button"
+        title="Delete status"
+        onClick={onDelete}
+      >
+        <IconTrash />
+      </button>
+    </div>
   )
 }

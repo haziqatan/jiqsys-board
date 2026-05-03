@@ -19,10 +19,31 @@ import {
   deleteBoard,
 } from './lib/db'
 import { DEFAULT_BOARD_ID, supabase } from './lib/supabase'
+import { DEFAULT_STATUS_OPTIONS, createStatusOption, normalizeStatus } from './lib/status'
 import './App.css'
 
 const isDetailCard = (card) => (card?.node_shape || 'rect') === 'rect'
 const ACTIVE_BOARD_KEY = 'jiqsys-active-board'
+const STATUS_OPTIONS_KEY = 'jiqsys-status-options'
+
+function loadStatusOptions() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STATUS_OPTIONS_KEY) || 'null')
+    if (Array.isArray(saved) && saved.length > 0) {
+      return [
+        DEFAULT_STATUS_OPTIONS[0],
+        ...saved.reduce((options, item) => {
+          const option = createStatusOption(item.label || item.value, item.color)
+          if (option) options.push({ ...option, id: item.id || option.id })
+          return options
+        }, []),
+      ]
+    }
+  } catch {
+    localStorage.removeItem(STATUS_OPTIONS_KEY)
+  }
+  return DEFAULT_STATUS_OPTIONS
+}
 
 export default function App() {
   const [boards, setBoards] = useState([])
@@ -36,6 +57,12 @@ export default function App() {
   const [tool, setTool] = useState('select')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [statusOptions, setStatusOptions] = useState(loadStatusOptions)
+
+  useEffect(() => {
+    const editable = statusOptions.filter((option) => option.value)
+    localStorage.setItem(STATUS_OPTIONS_KEY, JSON.stringify(editable))
+  }, [statusOptions])
 
   // Persist active board
   useEffect(() => {
@@ -231,6 +258,60 @@ export default function App() {
     }
   }, [])
 
+  const updateCardsWithStatus = useCallback(async (fromStatus, toStatus) => {
+    const affected = cards.filter((card) => card.status === fromStatus)
+    if (affected.length === 0) return
+
+    setCards((prev) =>
+      prev.map((card) => (card.status === fromStatus ? { ...card, status: toStatus } : card)),
+    )
+    await Promise.all(
+      affected.map((card) => updateCard(card.id, { status: toStatus }).catch(console.error)),
+    )
+  }, [cards])
+
+  const handleCreateStatus = useCallback((label, color) => {
+    const option = createStatusOption(label, color)
+    if (!option) return null
+    const exists = statusOptions.find(
+      (item) => item.value?.toLowerCase() === option.value.toLowerCase(),
+    )
+    if (exists) return exists
+
+    setStatusOptions((prev) => [...prev, option])
+    return option
+  }, [statusOptions])
+
+  const handleUpdateStatus = useCallback((id, patch) => {
+    const current = statusOptions.find((option) => option.id === id)
+    if (!current) return null
+    const nextLabel = patch.label != null ? normalizeStatus(patch.label) : current.label
+    const nextColor = patch.color || current.color
+    if (!nextLabel) return null
+    const duplicate = statusOptions.find(
+      (option) => option.id !== id && option.value?.toLowerCase() === nextLabel.toLowerCase(),
+    )
+    if (duplicate) return null
+
+    const rename = nextLabel !== current.value ? { from: current.value, to: nextLabel } : null
+    setStatusOptions((prev) =>
+      prev.map((option) =>
+        option.id === id
+          ? { ...option, label: nextLabel, value: nextLabel, color: nextColor }
+          : option,
+      ),
+    )
+    if (rename) updateCardsWithStatus(rename.from, rename.to)
+    return rename?.to || null
+  }, [statusOptions, updateCardsWithStatus])
+
+  const handleDeleteStatus = useCallback((id) => {
+    const option = statusOptions.find((item) => item.id === id)
+    if (!option?.value) return
+    setStatusOptions((prev) => prev.filter((item) => item.id !== id))
+    updateCardsWithStatus(option.value, null)
+  }, [statusOptions, updateCardsWithStatus])
+
   const handleDeleteCard = useCallback(
     async (id) => {
       setCards((prev) => prev.filter((c) => c.id !== id))
@@ -297,7 +378,11 @@ export default function App() {
         <CardDetail
           key={visibleDetailCard.id}
           card={visibleDetailCard}
+          statusOptions={statusOptions}
           onUpdate={(patch) => handleUpdateCard(visibleDetailCard.id, patch)}
+          onCreateStatus={handleCreateStatus}
+          onUpdateStatus={handleUpdateStatus}
+          onDeleteStatus={handleDeleteStatus}
           onDelete={() => handleDeleteCard(visibleDetailCard.id)}
           onClose={() => setDetailId(null)}
         />
@@ -307,6 +392,7 @@ export default function App() {
         key={boardId}
         cards={cards}
         connectors={connectors}
+        statusOptions={statusOptions}
         selectedId={selectedId}
         onSelect={setSelectedId}
         onOpenDetail={setDetailId}
