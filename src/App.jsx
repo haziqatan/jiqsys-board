@@ -16,6 +16,8 @@ import {
 import { DEFAULT_BOARD_ID, supabase } from './lib/supabase'
 import './App.css'
 
+const isDetailCard = (card) => (card?.node_shape || 'rect') === 'rect'
+
 export default function App() {
   const [boardId] = useState(DEFAULT_BOARD_ID)
   const [cards, setCards] = useState([])
@@ -25,6 +27,22 @@ export default function App() {
   const [tool, setTool] = useState('select')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+
+  useEffect(() => {
+    const preventBrowserPinchZoom = (event) => {
+      if (event.ctrlKey || event.metaKey) event.preventDefault()
+    }
+    const preventGestureZoom = (event) => event.preventDefault()
+
+    document.addEventListener('wheel', preventBrowserPinchZoom, { passive: false })
+    document.addEventListener('gesturestart', preventGestureZoom, { passive: false })
+    document.addEventListener('gesturechange', preventGestureZoom, { passive: false })
+    return () => {
+      document.removeEventListener('wheel', preventBrowserPinchZoom)
+      document.removeEventListener('gesturestart', preventGestureZoom)
+      document.removeEventListener('gesturechange', preventGestureZoom)
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -172,14 +190,16 @@ export default function App() {
   }, [])
 
   const detailCard = detailId ? cards.find((c) => c.id === detailId) : null
+  const visibleDetailCard = isDetailCard(detailCard) ? detailCard : null
 
   return (
     <div className="app">
-      {detailCard && (
+      {visibleDetailCard && (
         <CardDetail
-          card={detailCard}
-          onUpdate={(patch) => handleUpdateCard(detailCard.id, patch)}
-          onDelete={() => handleDeleteCard(detailCard.id)}
+          key={visibleDetailCard.id}
+          card={visibleDetailCard}
+          onUpdate={(patch) => handleUpdateCard(visibleDetailCard.id, patch)}
+          onDelete={() => handleDeleteCard(visibleDetailCard.id)}
           onClose={() => setDetailId(null)}
         />
       )}

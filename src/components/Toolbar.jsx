@@ -6,7 +6,7 @@ const SELECT_TOOLS = [
 ]
 
 const CARD_TOOLS = [
-  { id: 'card',        label: 'Rectangle', shortcut: 'C', Icon: IconCard },
+  { id: 'card',        label: 'Card', shortcut: 'C', Icon: IconCard },
   { id: 'card-circle', label: 'Circle',    shortcut: null, Icon: IconCircle },
   { id: 'card-diamond',label: 'Diamond',   shortcut: null, Icon: IconDiamond },
   { id: 'card-hex',    label: 'Hexagon',   shortcut: null, Icon: IconHexagon },

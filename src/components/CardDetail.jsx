@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import RichTextEditor from './RichTextEditor'
 import ColorPicker from './ColorPicker'
 import TagManager from './TagManager'
-import { IconClose, IconTrash, IconPanelLeft, IconModal, IconExpandFull, IconCard, IconCircle, IconDiamond, IconHexagon, IconParallelogram } from './Icons'
+import { IconClose, IconTrash, IconPanelLeft, IconModal, IconExpandFull } from './Icons'
 import '../styles/CardDetail.css'
 
 const STATUS_OPTIONS = ['Not set', 'To Do', 'In Progress', 'Blocked', 'Done']
@@ -10,19 +10,10 @@ const MODES = ['side', 'modal', 'fullscreen']
 const MODE_ICONS = { side: IconPanelLeft, modal: IconModal, fullscreen: IconExpandFull }
 const MODE_TITLES = { side: 'Side panel', modal: 'Centered modal', fullscreen: 'Full screen' }
 
-const NODE_SHAPES = [
-  { id: 'rect',          label: 'Rectangle',    Icon: IconCard },
-  { id: 'circle',        label: 'Circle',       Icon: IconCircle },
-  { id: 'diamond',       label: 'Diamond',      Icon: IconDiamond },
-  { id: 'hexagon',       label: 'Hexagon',      Icon: IconHexagon },
-  { id: 'parallelogram', label: 'Parallelogram',Icon: IconParallelogram },
-]
-
 export default function CardDetail({ card, onUpdate, onDelete, onClose }) {
   const [mode, setMode] = useState('side')
   const [title, setTitle] = useState(card.title)
   const [color, setColor] = useState(card.color)
-  const [nodeShape, setNodeShape] = useState(card.node_shape || 'rect')
   const [status, setStatus] = useState(card.status || 'Not set')
   const [assignee, setAssignee] = useState(card.assignee || '')
   const [estimate, setEstimate] = useState(card.estimate ?? '')
@@ -33,18 +24,6 @@ export default function CardDetail({ card, onUpdate, onDelete, onClose }) {
 
   const nextMode = () => setMode((m) => MODES[(MODES.indexOf(m) + 1) % MODES.length])
   const NextIcon = MODE_ICONS[MODES[(MODES.indexOf(mode) + 1) % MODES.length]]
-
-  useEffect(() => {
-    setTitle(card.title)
-    setColor(card.color)
-    setNodeShape(card.node_shape || 'rect')
-    setStatus(card.status || 'Not set')
-    setAssignee(card.assignee || '')
-    setEstimate(card.estimate ?? '')
-    setStartDate(card.start_date || '')
-    setEndDate(card.end_date || '')
-    setTags(card.tags || [])
-  }, [card.id])
 
   const commit = (patch) => onUpdate(patch)
 
@@ -100,25 +79,6 @@ export default function CardDetail({ card, onUpdate, onDelete, onClose }) {
               }}
             />
           )}
-        </div>
-      </div>
-
-      <div className="cd-row">
-        <label>Shape</label>
-        <div className="cd-shape-picker">
-          {NODE_SHAPES.map(({ id, label, Icon }) => (
-            <button
-              key={id}
-              className={`cd-shape-btn ${nodeShape === id ? 'active' : ''}`}
-              title={label}
-              onClick={() => {
-                setNodeShape(id)
-                commit({ node_shape: id })
-              }}
-            >
-              <Icon width={16} height={16} />
-            </button>
-          ))}
         </div>
       </div>
 

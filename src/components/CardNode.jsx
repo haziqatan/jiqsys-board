@@ -26,10 +26,6 @@ export default function CardNode({
   const [resizing, setResizing] = useState(null)
 
   useEffect(() => {
-    if (!editingTitle) setDraftTitle(card.title)
-  }, [card.title, editingTitle])
-
-  useEffect(() => {
     if (editingTitle && titleRef.current) {
       titleRef.current.focus()
       titleRef.current.select()
@@ -80,9 +76,16 @@ export default function CardNode({
     if (draftTitle !== card.title) onTitleChange(draftTitle)
   }
 
+  const beginEditingTitle = () => {
+    setDraftTitle(card.title)
+    setEditingTitle(true)
+  }
+
   const statusDot = card.status ? STATUS_COLORS[card.status] || '#94a3b8' : null
   const showHandles = selected || hovered
   const nodeShape = card.node_shape || 'rect'
+  const isPlainShape = nodeShape !== 'rect'
+  const displayTitle = isPlainShape ? card.title : card.title || 'Untitled'
 
   const shapeStyle = {}
   if (nodeShape === 'circle') {
@@ -103,7 +106,7 @@ export default function CardNode({
 
   return (
     <div
-      className={`card-node shape-${nodeShape} ${selected ? 'selected' : ''}`}
+      className={`card-node shape-${nodeShape} ${isPlainShape ? 'plain-shape' : ''} ${selected ? 'selected' : ''}`}
       style={{
         left: card.x,
         top: card.y,
@@ -117,12 +120,16 @@ export default function CardNode({
       }}
       onDoubleClick={(e) => {
         e.stopPropagation()
+        if (isPlainShape) {
+          beginEditingTitle()
+          return
+        }
         onDoubleClick()
       }}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
-      <div className="card-color-bar" style={{ background: card.color }} />
+      {!isPlainShape && <div className="card-color-bar" style={{ background: card.color }} />}
 
       <div className="card-body">
         {editingTitle ? (
@@ -146,28 +153,30 @@ export default function CardNode({
             className="card-title"
             onDoubleClick={(e) => {
               e.stopPropagation()
-              setEditingTitle(true)
+              beginEditingTitle()
             }}
           >
-            {card.title || 'Untitled'}
+            {displayTitle}
           </div>
         )}
 
-        <div className="card-meta">
-          {statusDot && (
-            <span className="card-meta-pill">
-              <span className="dot" style={{ background: statusDot }} />
-              {card.status}
-            </span>
-          )}
-          {card.assignee && <span className="card-meta-pill">@{card.assignee}</span>}
-          {card.estimate != null && card.estimate !== '' && (
-            <span className="card-meta-pill">{card.estimate}p</span>
-          )}
-          {card.tags && card.tags.length > 0 && (
-            <span className="card-meta-pill">#{card.tags[0]}{card.tags.length > 1 ? ` +${card.tags.length - 1}` : ''}</span>
-          )}
-        </div>
+        {!isPlainShape && (
+          <div className="card-meta">
+            {statusDot && (
+              <span className="card-meta-pill">
+                <span className="dot" style={{ background: statusDot }} />
+                {card.status}
+              </span>
+            )}
+            {card.assignee && <span className="card-meta-pill">@{card.assignee}</span>}
+            {card.estimate != null && card.estimate !== '' && (
+              <span className="card-meta-pill">{card.estimate}p</span>
+            )}
+            {card.tags && card.tags.length > 0 && (
+              <span className="card-meta-pill">#{card.tags[0]}{card.tags.length > 1 ? ` +${card.tags.length - 1}` : ''}</span>
+            )}
+          </div>
+        )}
       </div>
 
       {showHandles && (

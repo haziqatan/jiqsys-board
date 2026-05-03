@@ -8,6 +8,7 @@ import '../styles/Canvas.css'
 const MIN_ZOOM = 0.2
 const MAX_ZOOM = 3
 const WORLD_OFFSET = 10000
+const isDetailCard = (card) => (card?.node_shape || 'rect') === 'rect'
 
 export default function Canvas({
   cards,
@@ -114,14 +115,14 @@ export default function Canvas({
     if (e.button === 0 && isEmpty && tool.startsWith('card')) {
       const { x, y } = screenToWorld(e.clientX, e.clientY)
       const shapeMap = {
-        'card':         { node_shape: 'rect',          w: 240, h: 100 },
-        'card-circle':  { node_shape: 'circle',        w: 140, h: 140 },
-        'card-diamond': { node_shape: 'diamond',       w: 160, h: 160 },
-        'card-hex':     { node_shape: 'hexagon',       w: 180, h: 160 },
-        'card-para':    { node_shape: 'parallelogram', w: 240, h: 100 },
+        'card':         { node_shape: 'rect',          w: 240, h: 100, title: 'New card', color: '#3b82f6' },
+        'card-circle':  { node_shape: 'circle',        w: 140, h: 140, title: '', color: '#ffffff' },
+        'card-diamond': { node_shape: 'diamond',       w: 160, h: 160, title: '', color: '#ffffff' },
+        'card-hex':     { node_shape: 'hexagon',       w: 180, h: 160, title: '', color: '#ffffff' },
+        'card-para':    { node_shape: 'parallelogram', w: 240, h: 100, title: '', color: '#ffffff' },
       }
-      const { node_shape, w, h } = shapeMap[tool] || shapeMap['card']
-      onCreateCard(x - w / 2, y - h / 2, { node_shape, width: w, height: h })
+      const { node_shape, w, h, title, color } = shapeMap[tool] || shapeMap['card']
+      onCreateCard(x - w / 2, y - h / 2, { node_shape, width: w, height: h, title, color })
       setTool('select')
     }
   }
@@ -208,7 +209,7 @@ export default function Canvas({
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [selectedId, selectedConnectorId, onDeleteCard, onDeleteConnector, onSelect, setTool])
+  }, [selectedId, selectedConnectorId, onDeleteCard, onDeleteConnector, onSelect, setTool, tool])
 
   const startDrag = (e, card) => {
     e.stopPropagation()
@@ -326,7 +327,9 @@ export default function Canvas({
             selected={selectedId === card.id}
             hovered={hoveredCardId === card.id}
             onMouseDown={(e) => startDrag(e, card)}
-            onDoubleClick={() => onOpenDetail(card.id)}
+            onDoubleClick={() => {
+              if (isDetailCard(card)) onOpenDetail(card.id)
+            }}
             onMouseEnter={() => setHoveredCardId(card.id)}
             onMouseLeave={() => setHoveredCardId(null)}
             onStartLink={(e, side) => startLink(e, card, side)}

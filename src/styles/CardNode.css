@@ -41,6 +41,14 @@
   height: calc(100% - 4px);
 }
 
+.card-node.plain-shape .card-body {
+  height: 100%;
+  padding: 14px 18px;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
 .card-title {
   font-size: 14px;
   font-weight: 600;
@@ -54,6 +62,12 @@
   word-break: break-word;
 }
 
+.card-node.plain-shape .card-title {
+  width: 100%;
+  font-weight: 500;
+  -webkit-line-clamp: 4;
+}
+
 .card-title-input {
   font-size: 14px;
   font-weight: 600;
@@ -65,6 +79,11 @@
   width: 100%;
   background: #fff;
   box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.card-node.plain-shape .card-title-input {
+  text-align: center;
+  font-weight: 500;
 }
 
 .card-meta {
