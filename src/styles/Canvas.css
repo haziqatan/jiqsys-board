@@ -34,6 +34,39 @@
   overflow: visible;
 }
 
+.snap-guides-layer {
+  position: absolute;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 40;
+}
+
+.snap-guide-line {
+  stroke: #2563ff;
+  stroke-width: 1.5;
+  stroke-dasharray: 6 5;
+  opacity: 0.9;
+}
+
+.snap-measure line {
+  stroke: #4f6dff;
+  stroke-width: 1.4;
+}
+
+.snap-measure rect {
+  fill: rgba(247, 249, 255, 0.96);
+  stroke: rgba(79, 109, 255, 0.35);
+  stroke-width: 1;
+}
+
+.snap-measure text {
+  fill: #3154e8;
+  font-weight: 700;
+  text-anchor: middle;
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+}
+
 .connectors-layer .connector-hit,
 .connectors-layer .connector-line {
   pointer-events: stroke;

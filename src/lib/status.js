@@ -23,8 +23,9 @@ export function normalizeStatus(value) {
 
 export function getStatusColor(status, options = DEFAULT_STATUS_OPTIONS) {
   if (!status) return DEFAULT_STATUS_OPTIONS[0].color
-  if (DEFAULT_STATUS_COLOR_MAP[status]) return DEFAULT_STATUS_COLOR_MAP[status]
-  return getOptionColor(status, options)
+  const option = options.find((item) => item.value === status)
+  if (option) return option.color
+  return DEFAULT_STATUS_COLOR_MAP[status] || getOptionColor(status, options)
 }
 
 export function getStatusOptions(status, options = DEFAULT_STATUS_OPTIONS) {
