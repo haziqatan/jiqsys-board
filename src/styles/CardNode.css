@@ -1,24 +1,22 @@
+/* ── Outer card node ──
+   No overflow:hidden here — link/resize handles need to protrude outside. */
 .card-node {
   position: absolute;
-  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  overflow: hidden;
   cursor: grab;
   box-shadow: var(--shadow-sm);
   transition: box-shadow 160ms var(--ease), border-color 160ms var(--ease), transform 80ms var(--ease);
   animation: card-in 220ms var(--ease);
+  background: var(--surface);
 }
 
 @keyframes card-in {
   from { opacity: 0; transform: translateY(4px) scale(0.97); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  to   { opacity: 1; transform: translateY(0)   scale(1); }
 }
 
-.card-node:hover {
-  box-shadow: var(--shadow-md);
-  border-color: var(--border-strong);
-}
+.card-node:hover  { box-shadow: var(--shadow-md); border-color: var(--border-strong); }
 .card-node:active { cursor: grabbing; }
 .card-node.selected {
   z-index: 5;
@@ -26,7 +24,19 @@
   box-shadow: 0 0 0 2px var(--accent-soft), var(--shadow-md);
 }
 
+/* ── Inner wrapper — clips rounded corners for rect cards ── */
+.card-inner {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: inherit;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Rect card content ── */
 .card-color-bar {
+  flex-shrink: 0;
   height: 4px;
   width: 100%;
   transition: height 160ms var(--ease);
@@ -38,15 +48,8 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  height: calc(100% - 4px);
-}
-
-.card-node.plain-shape .card-body {
-  height: 100%;
-  padding: 14px 18px;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
+  flex: 1;
+  min-height: 0;
 }
 
 .card-title {
@@ -62,12 +65,6 @@
   word-break: break-word;
 }
 
-.card-node.plain-shape .card-title {
-  width: 100%;
-  font-weight: 500;
-  -webkit-line-clamp: 4;
-}
-
 .card-title-input {
   font-size: 14px;
   font-weight: 600;
@@ -79,11 +76,6 @@
   width: 100%;
   background: #fff;
   box-shadow: 0 0 0 2px var(--accent-soft);
-}
-
-.card-node.plain-shape .card-title-input {
-  text-align: center;
-  font-weight: 500;
 }
 
 .card-meta {
@@ -105,13 +97,87 @@
   border-radius: 999px;
   line-height: 1.3;
 }
-
 .card-meta-pill .dot {
   width: 6px;
   height: 6px;
   border-radius: 999px;
   display: inline-block;
 }
+
+/* ── Shape node ── */
+.card-node.shape-node {
+  /* No border/box-shadow on the outer div — visual is in .shape-bg */
+  border: none;
+  box-shadow: none;
+  background: transparent;
+  overflow: visible;
+}
+
+.card-node.shape-node:hover {
+  box-shadow: none;
+  border-color: transparent;
+}
+
+/* Selection ring for shapes: drop-shadow follows the clip-path outline */
+.card-node.shape-node.selected {
+  border: none;
+  box-shadow: none;
+  filter: drop-shadow(0 0 0 2.5px var(--accent)) drop-shadow(0 0 6px rgba(59,130,246,.35));
+}
+
+/* Filled background layer — absolutely covers the bounding box */
+.shape-bg {
+  position: absolute;
+  inset: 0;
+  transition: filter 160ms var(--ease);
+}
+.card-node.shape-node:hover .shape-bg {
+  filter: brightness(0.95);
+}
+
+/* Centered text label */
+.shape-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.5;
+  word-break: break-word;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Editing textarea inside a shape */
+.shape-text-edit {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  /* Width is constrained to usable inner area of each shape */
+  width: 60%;
+  resize: none;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  text-align: center;
+  line-height: 1.5;
+  overflow: hidden;
+  z-index: 2;
+  padding: 4px 0;
+}
+/* Wider usable area for parallelogram and hexagon */
+.shape-parallelogram .shape-text-edit { width: 72%; }
+.shape-hexagon .shape-text-edit       { width: 68%; }
 
 /* ── Link handles ── */
 .link-handle {
@@ -123,7 +189,6 @@
   pointer-events: all;
 }
 
-/* Hit-zone sizing per axis */
 .link-handle.top,
 .link-handle.bottom {
   width: 32px;
@@ -143,9 +208,7 @@
 .link-handle.right  { right: -22px; }
 
 .card-node:hover .link-handle,
-.card-node.selected .link-handle {
-  opacity: 1;
-}
+.card-node.selected .link-handle { opacity: 1; }
 
 /* Circle dot */
 .link-handle::after {
@@ -160,7 +223,7 @@
   transition: transform 140ms var(--ease), box-shadow 140ms var(--ease);
 }
 
-/* Directional stub (::before) */
+/* Directional stub */
 .link-handle::before {
   content: '';
   position: absolute;
@@ -169,19 +232,15 @@
   opacity: 0.7;
 }
 
-/* Top: dot at top-center, stub below it toward card */
 .link-handle.top::after  { top: 2px;  left: calc(50% - 6px); }
 .link-handle.top::before { width: 2px; height: 7px; top: 13px; left: calc(50% - 1px); }
 
-/* Bottom: dot at bottom-center, stub above it */
 .link-handle.bottom::after  { bottom: 2px; left: calc(50% - 6px); }
 .link-handle.bottom::before { width: 2px; height: 7px; bottom: 13px; left: calc(50% - 1px); }
 
-/* Left: dot at left-center, stub to the right */
 .link-handle.left::after  { left: 2px;  top: calc(50% - 6px); }
 .link-handle.left::before { width: 7px; height: 2px; left: 13px; top: calc(50% - 1px); }
 
-/* Right: dot at right-center, stub to the left */
 .link-handle.right::after  { right: 2px; top: calc(50% - 6px); }
 .link-handle.right::before { width: 7px; height: 2px; right: 13px; top: calc(50% - 1px); }
 

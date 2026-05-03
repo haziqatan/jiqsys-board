@@ -199,6 +199,15 @@ export const IconLink = (p) => (
   </svg>
 )
 
+export const IconShapes = (p) => (
+  <svg {...base} {...p}>
+    <circle cx="7.5" cy="7.5" r="4" />
+    <rect x="13" y="4" width="7" height="7" rx="1.5" />
+    <path d="M4 14l4 6H0z" />
+    <path d="M13.5 14l3.5 6H10z" />
+  </svg>
+)
+
 export const IconRounded = (p) => (
   <svg {...base} {...p}>
     <path d="M4 18h4a6 6 0 0 0 6-6V8a4 4 0 0 1 4-4h2" strokeLinejoin="round" />
