@@ -228,6 +228,11 @@
 .cd-bar-btn.active .bar-label { color: var(--accent-strong); }
 
 /* ── Status pill picker ── */
+.cd-status-control {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
 .cd-status-picker {
   display: flex;
   flex-wrap: wrap;
@@ -263,6 +268,9 @@
   height: 8px;
   border-radius: 999px;
   flex-shrink: 0;
+}
+.cd-status-input {
+  max-width: 220px;
 }
 
 select.cd-input {

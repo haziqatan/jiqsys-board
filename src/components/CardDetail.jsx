@@ -3,15 +3,9 @@ import RichTextEditor from './RichTextEditor'
 import ColorPicker from './ColorPicker'
 import TagManager from './TagManager'
 import { IconClose, IconTrash, IconPanelLeft, IconModal, IconExpandFull } from './Icons'
+import { getStatusOptions, normalizeStatus } from '../lib/status'
 import '../styles/CardDetail.css'
 
-const STATUS_OPTIONS = [
-  { value: null,           label: 'Not set',     color: '#cbd0db' },
-  { value: 'To Do',        label: 'To Do',       color: '#94a3b8' },
-  { value: 'In Progress',  label: 'In Progress', color: '#3b82f6' },
-  { value: 'Blocked',      label: 'Blocked',     color: '#ef4444' },
-  { value: 'Done',         label: 'Done',        color: '#22c55e' },
-]
 const COLOR_BAR_STYLES = [
   { id: 'solid',    label: 'Solid' },
   { id: 'striped',  label: 'Striped' },
@@ -36,8 +30,15 @@ export default function CardDetail({ card, onUpdate, onDelete, onClose }) {
 
   const nextMode = () => setMode((m) => MODES[(MODES.indexOf(m) + 1) % MODES.length])
   const NextIcon = MODE_ICONS[MODES[(MODES.indexOf(mode) + 1) % MODES.length]]
+  const normalizedStatus = normalizeStatus(status)
+  const statusOptions = getStatusOptions(normalizedStatus)
 
   const commit = (patch) => onUpdate(patch)
+  const commitStatus = () => {
+    const nextStatus = normalizeStatus(status)
+    setStatus(nextStatus)
+    commit({ status: nextStatus })
+  }
 
   return (
     <>
@@ -117,19 +118,32 @@ export default function CardDetail({ card, onUpdate, onDelete, onClose }) {
 
       <div className="cd-row">
         <label>Status</label>
-        <div className="cd-status-picker">
-          {STATUS_OPTIONS.map((s) => (
-            <button
-              key={s.label}
-              type="button"
-              className={`cd-status-pill${status === s.value ? ' active' : ''}`}
-              onClick={() => { setStatus(s.value); commit({ status: s.value }) }}
-              style={status === s.value ? { '--pill-c': s.color } : undefined}
-            >
-              <span className="cd-status-dot" style={{ background: s.color }} />
-              {s.label}
-            </button>
-          ))}
+        <div className="cd-status-control">
+          <div className="cd-status-picker">
+            {statusOptions.map((s) => (
+              <button
+                key={s.label}
+                type="button"
+                className={`cd-status-pill${normalizedStatus === s.value ? ' active' : ''}`}
+                onClick={() => { setStatus(s.value); commit({ status: s.value }) }}
+                style={normalizedStatus === s.value ? { '--pill-c': s.color } : undefined}
+              >
+                <span className="cd-status-dot" style={{ background: s.color }} />
+                {s.label}
+              </button>
+            ))}
+          </div>
+          <input
+            className="cd-input cd-status-input"
+            placeholder="Custom status"
+            value={status || ''}
+            onChange={(e) => setStatus(e.target.value)}
+            onBlur={commitStatus}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') e.target.blur()
+              if (e.key === 'Escape') setStatus(card.status || null)
+            }}
+          />
         </div>
       </div>
 

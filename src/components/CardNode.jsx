@@ -1,12 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import { getStatusColor } from '../lib/status'
 import '../styles/CardNode.css'
-
-const STATUS_COLORS = {
-  'To Do': '#94a3b8',
-  'In Progress': '#3b82f6',
-  Blocked: '#ef4444',
-  Done: '#22c55e',
-}
 
 const SHAPE_CLIP = {
   diamond:       'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)',
@@ -268,7 +262,7 @@ export default function CardNode({
   }
 
   // ── RECT CARD ────────────────────────────────────────────────────────
-  const statusDot = card.status ? STATUS_COLORS[card.status] || '#94a3b8' : null
+  const statusDot = card.status ? getStatusColor(card.status) : null
 
   return (
     <div
