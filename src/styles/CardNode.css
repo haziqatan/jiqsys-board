@@ -44,25 +44,26 @@
 }
 .card-node.selected .card-color-bar { height: 5px; }
 
-/* Striped: diagonal stripes overlaid on base color */
+/* Striped: diagonal stripes at 45° overlaid on base color */
 .card-color-bar.style-striped,
 .card-color-bar.style-animated {
   height: 8px;
   background-image: repeating-linear-gradient(
-    -45deg,
+    45deg,
     transparent 0,
     transparent 6px,
-    rgba(255, 255, 255, 0.55) 6px,
-    rgba(255, 255, 255, 0.55) 12px
+    rgba(255, 255, 255, 0.6) 6px,
+    rgba(255, 255, 255, 0.6) 12px
   );
 }
 .card-node.selected .card-color-bar.style-striped,
 .card-node.selected .card-color-bar.style-animated { height: 9px; }
 
-/* Animated: same stripes, sliding */
+/* Animated: same 45° stripes sliding left → right in a continuous loop.
+   Period along the X-axis is 12 / cos(45°) ≈ 16.97px, so a 17px shift
+   per cycle produces a seamless loop. */
 .card-color-bar.style-animated {
-  background-size: 17px 100%;
-  animation: stripe-slide 1.2s linear infinite;
+  animation: stripe-slide 1s linear infinite;
 }
 
 @keyframes stripe-slide {
