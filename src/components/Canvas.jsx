@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import CardNode from './CardNode'
 import Connector, { pickAnchor, rectCenter, getPathSegments } from './Connector'
 import ConnectorToolbar from './ConnectorToolbar'
+import { IconPlus, IconMinus, IconHome } from './Icons'
 import '../styles/Canvas.css'
 
 const MIN_ZOOM = 0.2
@@ -80,14 +81,18 @@ export default function Canvas({
     const my = e.clientY - rect.top
 
     if (e.ctrlKey || e.metaKey) {
-      const factor = Math.exp(-e.deltaY * 0.01)
-      const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, view.zoom * factor))
-      const wx = (mx - view.x) / view.zoom
-      const wy = (my - view.y) / view.zoom
-      setView({
-        zoom: newZoom,
-        x: mx - wx * newZoom,
-        y: my - wy * newZoom,
+      // Pinch / cmd+wheel zoom — clamped per-event so it doesn't snap
+      const delta = Math.max(-50, Math.min(50, e.deltaY))
+      const factor = Math.exp(-delta * 0.008)
+      setView((v) => {
+        const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, v.zoom * factor))
+        const wx = (mx - v.x) / v.zoom
+        const wy = (my - v.y) / v.zoom
+        return {
+          zoom: newZoom,
+          x: mx - wx * newZoom,
+          y: my - wy * newZoom,
+        }
       })
     } else {
       setView((v) => ({ ...v, x: v.x - e.deltaX, y: v.y - e.deltaY }))
@@ -167,12 +172,13 @@ export default function Canvas({
   }
 
   useEffect(() => {
+    const isTyping = (el) =>
+      el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)
     const onKey = (e) => {
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return
-        if (selectedId) {
-          onDeleteCard(selectedId)
-        } else if (selectedConnectorId) {
+        if (isTyping(e.target)) return
+        if (selectedId) onDeleteCard(selectedId)
+        else if (selectedConnectorId) {
           onDeleteConnector(selectedConnectorId)
           setSelectedConnectorId(null)
         }
@@ -182,6 +188,10 @@ export default function Canvas({
         setSelectedConnectorId(null)
         setLinking(null)
         setTool('select')
+      }
+      if (!isTyping(e.target) && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        if (e.key === 'v' || e.key === 'V') setTool('select')
+        if (e.key === 'c' || e.key === 'C') setTool('card')
       }
     }
     window.addEventListener('keydown', onKey)
@@ -222,8 +232,11 @@ export default function Canvas({
     }
   }
 
-  const cursorClass =
-    tool === 'card' ? 'cursor-add' : panning ? 'cursor-grabbing' : 'cursor-default'
+  const cursorClass = panning
+    ? 'cursor-grabbing'
+    : tool === 'card'
+    ? 'cursor-add'
+    : 'cursor-grab'
 
   return (
     <div
@@ -325,11 +338,34 @@ export default function Canvas({
       )}
 
       <div className="zoom-indicator">
-        <button onClick={() => setView((v) => ({ ...v, zoom: Math.max(MIN_ZOOM, v.zoom - 0.1) }))}>−</button>
+        <button
+          aria-label="Zoom out"
+          onClick={() => setView((v) => ({ ...v, zoom: Math.max(MIN_ZOOM, v.zoom - 0.1) }))}
+        >
+          <IconMinus width={16} height={16} />
+        </button>
         <span>{Math.round(view.zoom * 100)}%</span>
-        <button onClick={() => setView((v) => ({ ...v, zoom: Math.min(MAX_ZOOM, v.zoom + 0.1) }))}>+</button>
-        <button title="Reset view" onClick={() => setView({ x: 0, y: 0, zoom: 1 })}>⌂</button>
+        <button
+          aria-label="Zoom in"
+          onClick={() => setView((v) => ({ ...v, zoom: Math.min(MAX_ZOOM, v.zoom + 0.1) }))}
+        >
+          <IconPlus width={16} height={16} />
+        </button>
+        <span className="zoom-divider" />
+        <button aria-label="Reset view" onClick={() => setView({ x: 0, y: 0, zoom: 1 })}>
+          <IconHome width={16} height={16} />
+        </button>
       </div>
+
+      {cards.length === 0 && (
+        <div className="canvas-empty">
+          <div className="canvas-empty-icon">＋</div>
+          <div className="canvas-empty-title">Start your board</div>
+          <div className="canvas-empty-hint">
+            Press <kbd>C</kbd> to add a card, or click the card tool on the left
+          </div>
+        </div>
+      )}
     </div>
   )
 }

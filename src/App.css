@@ -1,21 +1,28 @@
 .app {
   position: fixed;
   inset: 0;
-  display: block;
-  background: #f5f6f8;
+  background: var(--bg);
   overflow: hidden;
 }
 
 .status-pill {
   position: fixed;
-  bottom: 16px;
+  bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
-  background: #1f2330;
+  background: var(--text);
   color: #fff;
-  padding: 8px 14px;
+  padding: 8px 16px;
   border-radius: 999px;
   font-size: 12px;
+  font-weight: 500;
   z-index: 1000;
+  box-shadow: var(--shadow-md);
+  animation: pop-in 220ms var(--ease);
 }
-.status-pill.error { background: #c0392b; }
+.status-pill.error { background: var(--danger); }
+
+@keyframes pop-in {
+  from { opacity: 0; transform: translate(-50%, 8px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}

@@ -1,4 +1,3 @@
-import React from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
@@ -6,9 +5,20 @@ import Link from '@tiptap/extension-link'
 import Underline from '@tiptap/extension-underline'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
+import {
+  IconBold,
+  IconItalic,
+  IconUnderline,
+  IconStrike,
+  IconList,
+  IconListNumbered,
+  IconCheck,
+  IconImage,
+  IconLink,
+} from './Icons'
 import '../styles/RichTextEditor.css'
 
-const RichTextEditor = ({ value, onChange }) => {
+export default function RichTextEditor({ value, onChange }) {
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -16,152 +26,127 @@ const RichTextEditor = ({ value, onChange }) => {
         orderedList: { keepMarks: true },
       }),
       Image,
-      Link.configure({
-        openOnClick: false,
-      }),
+      Link.configure({ openOnClick: false }),
       Underline,
       TaskList,
-      TaskItem.configure({
-        nested: true,
-      }),
+      TaskItem.configure({ nested: true }),
     ],
     content: value || '<p></p>',
-    onUpdate: ({ editor }) => {
-      onChange(editor.getHTML())
-    },
+    onUpdate: ({ editor }) => onChange(editor.getHTML()),
   })
 
-  if (!editor) {
-    return <div>Loading editor...</div>
-  }
+  if (!editor) return <div className="re-loading">Loading editor…</div>
 
   const addImage = (url) => {
-    if (url) {
-      editor.chain().focus().setImage({ src: url }).run()
-    }
+    if (url) editor.chain().focus().setImage({ src: url }).run()
   }
 
   const handleImagePaste = (e) => {
     const items = e.clipboardData?.items
     if (!items) return
-
-    for (let item of items) {
+    for (const item of items) {
       if (item.type.indexOf('image') === 0) {
         const blob = item.getAsFile()
         const reader = new FileReader()
-        reader.onload = (event) => {
-          addImage(event.target.result)
-        }
+        reader.onload = (ev) => addImage(ev.target.result)
         reader.readAsDataURL(blob)
       }
     }
   }
 
+  const promptLink = () => {
+    const previous = editor.getAttributes('link').href
+    const url = window.prompt('URL', previous || 'https://')
+    if (url === null) return
+    if (url === '') {
+      editor.chain().focus().extendMarkRange('link').unsetLink().run()
+      return
+    }
+    editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
+  }
+
   return (
     <div className="rich-editor">
       <div className="editor-toolbar">
-        <div className="toolbar-group">
-          <button
-            onClick={() => editor.chain().focus().toggleBold().run()}
-            className={`btn-tool ${editor.isActive('bold') ? 'active' : ''}`}
-            title="Bold"
-          >
-            <strong>B</strong>
-          </button>
-          <button
-            onClick={() => editor.chain().focus().toggleItalic().run()}
-            className={`btn-tool ${editor.isActive('italic') ? 'active' : ''}`}
-            title="Italic"
-          >
-            <em>I</em>
-          </button>
-          <button
-            onClick={() => editor.chain().focus().toggleUnderline().run()}
-            className={`btn-tool ${editor.isActive('underline') ? 'active' : ''}`}
-            title="Underline"
-          >
-            <u>U</u>
-          </button>
-          <button
-            onClick={() => editor.chain().focus().toggleStrike().run()}
-            className={`btn-tool ${editor.isActive('strike') ? 'active' : ''}`}
-            title="Strikethrough"
-          >
-            <s>S</s>
-          </button>
-        </div>
+        <ToolbarButton
+          active={editor.isActive('bold')}
+          title="Bold"
+          onClick={() => editor.chain().focus().toggleBold().run()}
+        >
+          <IconBold />
+        </ToolbarButton>
+        <ToolbarButton
+          active={editor.isActive('italic')}
+          title="Italic"
+          onClick={() => editor.chain().focus().toggleItalic().run()}
+        >
+          <IconItalic />
+        </ToolbarButton>
+        <ToolbarButton
+          active={editor.isActive('underline')}
+          title="Underline"
+          onClick={() => editor.chain().focus().toggleUnderline().run()}
+        >
+          <IconUnderline />
+        </ToolbarButton>
+        <ToolbarButton
+          active={editor.isActive('strike')}
+          title="Strikethrough"
+          onClick={() => editor.chain().focus().toggleStrike().run()}
+        >
+          <IconStrike />
+        </ToolbarButton>
 
-        <div className="toolbar-group">
-          <button
-            onClick={() => editor.chain().focus().toggleBulletList().run()}
-            className={`btn-tool ${editor.isActive('bulletList') ? 'active' : ''}`}
-            title="Bullet List"
-          >
-            •
-          </button>
-          <button
-            onClick={() => editor.chain().focus().toggleOrderedList().run()}
-            className={`btn-tool ${editor.isActive('orderedList') ? 'active' : ''}`}
-            title="Numbered List"
-          >
-            1.
-          </button>
-        </div>
+        <div className="editor-divider" />
 
-        <div className="toolbar-group">
-          <button
-            onClick={() => editor.chain().focus().sinkListItem('listItem').run()}
-            disabled={!editor.can().sinkListItem('listItem')}
-            className="btn-tool"
-            title="Indent"
-          >
-            →
-          </button>
-          <button
-            onClick={() => editor.chain().focus().liftListItem('listItem').run()}
-            disabled={!editor.can().liftListItem('listItem')}
-            className="btn-tool"
-            title="Outdent"
-          >
-            ←
-          </button>
-        </div>
+        <ToolbarButton
+          active={editor.isActive('bulletList')}
+          title="Bullet list"
+          onClick={() => editor.chain().focus().toggleBulletList().run()}
+        >
+          <IconList />
+        </ToolbarButton>
+        <ToolbarButton
+          active={editor.isActive('orderedList')}
+          title="Numbered list"
+          onClick={() => editor.chain().focus().toggleOrderedList().run()}
+        >
+          <IconListNumbered />
+        </ToolbarButton>
+        <ToolbarButton
+          active={editor.isActive('taskList')}
+          title="Task list"
+          onClick={() => editor.chain().focus().toggleTaskList().run()}
+        >
+          <IconCheck />
+        </ToolbarButton>
 
-        <div className="toolbar-group">
-          <button
-            onClick={() => editor.chain().focus().toggleTaskList().run()}
-            className={`btn-tool ${editor.isActive('taskList') ? 'active' : ''}`}
-            title="Checklist"
-          >
-            ☑
-          </button>
-        </div>
+        <div className="editor-divider" />
 
-        <div className="toolbar-group">
+        <ToolbarButton
+          active={editor.isActive('link')}
+          title="Link"
+          onClick={promptLink}
+        >
+          <IconLink />
+        </ToolbarButton>
+        <label className="btn-tool" title="Insert image">
+          <IconImage />
           <input
             type="file"
-            id="image-input"
             accept="image/*"
             style={{ display: 'none' }}
             onChange={(e) => {
               const file = e.target.files?.[0]
               if (file) {
-                const reader = new FileReader()
-                reader.onload = (event) => {
-                  addImage(event.target.result)
-                }
-                reader.readAsDataURL(file)
+                const r = new FileReader()
+                r.onload = (ev) => addImage(ev.target.result)
+                r.readAsDataURL(file)
+                e.target.value = ''
               }
             }}
           />
-          <button
-            onClick={() => document.getElementById('image-input').click()}
-            className="btn-tool"
-            title="Insert Image"
-          >
-            🖼
-          </button>
-        </div>
+        </label>
       </div>
 
       <EditorContent
@@ -173,4 +158,16 @@ const RichTextEditor = ({ value, onChange }) => {
   )
 }
 
-export default RichTextEditor
+function ToolbarButton({ active, title, onClick, children }) {
+  return (
+    <button
+      type="button"
+      className={`btn-tool ${active ? 'active' : ''}`}
+      title={title}
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  )
+}

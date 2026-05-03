@@ -1,27 +1,28 @@
+import { IconCursor, IconCard } from './Icons'
 import '../styles/Toolbar.css'
 
 const TOOLS = [
-  { id: 'select', label: 'Select', icon: '↖' },
-  { id: 'card', label: 'Add card', icon: '▢' },
+  { id: 'select', label: 'Select', shortcut: 'V', Icon: IconCursor },
+  { id: 'card', label: 'Add card', shortcut: 'C', Icon: IconCard },
 ]
 
 export default function Toolbar({ tool, setTool }) {
   return (
     <div className="toolbar">
-      {TOOLS.map((t) => (
+      {TOOLS.map(({ id, label, shortcut, Icon }) => (
         <button
-          key={t.id}
-          className={`tool-btn ${tool === t.id ? 'active' : ''}`}
-          onClick={() => setTool(t.id)}
-          title={t.label}
+          key={id}
+          className={`tool-btn ${tool === id ? 'active' : ''}`}
+          onClick={() => setTool(id)}
+          aria-label={label}
         >
-          <span className="tool-icon">{t.icon}</span>
+          <Icon />
+          <span className="tool-tooltip">
+            {label}
+            <kbd>{shortcut}</kbd>
+          </span>
         </button>
       ))}
-      <div className="toolbar-divider" />
-      <div className="toolbar-hint">
-        Drag canvas to pan · Scroll to scroll · ⌘/Ctrl+Scroll to zoom
-      </div>
     </div>
   )
 }

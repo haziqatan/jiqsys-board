@@ -2,46 +2,98 @@
   position: fixed;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   padding: 4px;
-  background: #fff;
-  border: 1px solid #e3e6ec;
-  border-radius: 10px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
   z-index: 150;
   transform: translate(-50%, -50%);
+  animation: ct-in 180ms var(--ease);
+}
+
+@keyframes ct-in {
+  from { opacity: 0; transform: translate(-50%, calc(-50% + 6px)); }
+  to { opacity: 1; transform: translate(-50%, -50%); }
 }
 
 .conn-group {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 1px;
 }
 
 .conn-divider {
   width: 1px;
   height: 22px;
-  background: #e3e6ec;
-  margin: 0 2px;
+  background: var(--border);
+  margin: 0 4px;
 }
 
 .ct-btn {
   height: 30px;
   min-width: 30px;
   padding: 0 6px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #4a5568;
-  font-size: 12px;
+  color: var(--text-muted);
+  transition: background 120ms var(--ease), color 120ms var(--ease), transform 120ms var(--ease);
 }
-.ct-btn:hover { background: #f1f3f7; }
-.ct-btn.active { background: #e3e8ff; color: #3b3fbb; }
-.ct-btn.danger:hover { background: #fdecea; color: #c0392b; }
-.ct-icon { font-size: 14px; line-height: 1; }
+.ct-btn:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.ct-btn:active { transform: scale(0.94); }
+.ct-btn.active {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+.ct-btn.danger:hover {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
 
+.conn-group.thickness {
+  padding: 0 6px;
+  gap: 8px;
+}
 .conn-toolbar input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
   width: 80px;
-  margin: 0 6px;
+  height: 4px;
+  background: var(--border);
+  border-radius: 999px;
+  outline: none;
+  cursor: pointer;
+}
+.conn-toolbar input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--accent);
+  border: 2px solid var(--surface);
+  box-shadow: var(--shadow-sm);
+  cursor: grab;
+}
+.conn-toolbar input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--accent);
+  border: 2px solid var(--surface);
+  cursor: grab;
+}
+
+.thickness-num {
+  font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  width: 12px;
+  text-align: center;
 }

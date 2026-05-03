@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import RichTextEditor from './RichTextEditor'
 import ColorPicker from './ColorPicker'
 import TagManager from './TagManager'
+import { IconClose, IconTrash } from './Icons'
 import '../styles/CardDetail.css'
 
 const STATUS_OPTIONS = ['Not set', 'To Do', 'In Progress', 'Blocked', 'Done']
@@ -35,8 +36,12 @@ export default function CardDetail({ card, onUpdate, onDelete, onClose }) {
       <div className="cd-header">
         <h2>Card details</h2>
         <div className="cd-header-actions">
-          <button className="cd-icon-btn" title="Delete card" onClick={onDelete}>🗑</button>
-          <button className="cd-icon-btn" title="Close" onClick={onClose}>✕</button>
+          <button className="cd-icon-btn" title="Delete card" onClick={onDelete}>
+            <IconTrash />
+          </button>
+          <button className="cd-icon-btn" title="Close" onClick={onClose}>
+            <IconClose />
+          </button>
         </div>
       </div>
 

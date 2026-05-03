@@ -1,9 +1,20 @@
+import {
+  IconArrow,
+  IconArrowBoth,
+  IconArrowLeft,
+  IconArrowNone,
+  IconStraight,
+  IconOrthogonal,
+  IconCurved,
+  IconJump,
+  IconTrash,
+} from './Icons'
 import '../styles/ConnectorToolbar.css'
 
 const SHAPES = [
-  { id: 'straight', label: 'Straight', icon: '╱' },
-  { id: 'orthogonal', label: 'Orthogonal', icon: '⌐' },
-  { id: 'curved', label: 'Curved', icon: '∼' },
+  { id: 'straight', label: 'Straight', Icon: IconStraight },
+  { id: 'orthogonal', label: 'Orthogonal', Icon: IconOrthogonal },
+  { id: 'curved', label: 'Curved', Icon: IconCurved },
 ]
 
 const STYLES = [
@@ -13,10 +24,10 @@ const STYLES = [
 ]
 
 const ARROWS = [
-  { id: 'none', start: false, end: false, label: 'None' },
-  { id: 'end', start: false, end: true, label: '→' },
-  { id: 'both', start: true, end: true, label: '↔' },
-  { id: 'start', start: true, end: false, label: '←' },
+  { id: 'none', start: false, end: false, label: 'No arrows', Icon: IconArrowNone },
+  { id: 'end', start: false, end: true, label: 'Forward', Icon: IconArrow },
+  { id: 'both', start: true, end: true, label: 'Both', Icon: IconArrowBoth },
+  { id: 'start', start: true, end: false, label: 'Backward', Icon: IconArrowLeft },
 ]
 
 function arrowKey(c) {
@@ -31,18 +42,22 @@ function arrowKey(c) {
 export default function ConnectorToolbar({ connector, onUpdate, onDelete, screenX, screenY }) {
   if (!connector) return null
   const ak = arrowKey(connector)
+  const shape = connector.shape || 'orthogonal'
+  const style = connector.style || 'solid'
+  const thickness = connector.thickness ?? 2
+  const lineJumps = connector.line_jumps ?? true
 
   return (
     <div className="conn-toolbar" style={{ left: screenX, top: screenY }}>
       <div className="conn-group">
-        {ARROWS.map((a) => (
+        {ARROWS.map(({ id, start, end, label, Icon }) => (
           <button
-            key={a.id}
-            className={`ct-btn ${ak === a.id ? 'active' : ''}`}
-            title={`Arrow: ${a.label}`}
-            onClick={() => onUpdate({ arrow_start: a.start, arrow_end: a.end })}
+            key={id}
+            className={`ct-btn ${ak === id ? 'active' : ''}`}
+            title={label}
+            onClick={() => onUpdate({ arrow_start: start, arrow_end: end })}
           >
-            <span className="ct-icon">{a.label}</span>
+            <Icon />
           </button>
         ))}
       </div>
@@ -50,14 +65,14 @@ export default function ConnectorToolbar({ connector, onUpdate, onDelete, screen
       <div className="conn-divider" />
 
       <div className="conn-group">
-        {SHAPES.map((s) => (
+        {SHAPES.map(({ id, label, Icon }) => (
           <button
-            key={s.id}
-            className={`ct-btn ${(connector.shape || 'orthogonal') === s.id ? 'active' : ''}`}
-            title={`Type: ${s.label}`}
-            onClick={() => onUpdate({ shape: s.id })}
+            key={id}
+            className={`ct-btn ${shape === id ? 'active' : ''}`}
+            title={label}
+            onClick={() => onUpdate({ shape: id })}
           >
-            <span className="ct-icon">{s.icon}</span>
+            <Icon />
           </button>
         ))}
       </div>
@@ -68,8 +83,8 @@ export default function ConnectorToolbar({ connector, onUpdate, onDelete, screen
         {STYLES.map((s) => (
           <button
             key={s.id}
-            className={`ct-btn ${(connector.style || 'solid') === s.id ? 'active' : ''}`}
-            title={`Style: ${s.label}`}
+            className={`ct-btn ${style === s.id ? 'active' : ''}`}
+            title={s.label}
             onClick={() => onUpdate({ style: s.id })}
           >
             <DashPreview style={s.id} />
@@ -79,28 +94,29 @@ export default function ConnectorToolbar({ connector, onUpdate, onDelete, screen
 
       <div className="conn-divider" />
 
-      <div className="conn-group">
+      <div className="conn-group thickness">
         <input
           type="range"
           min="1"
           max="6"
           step="1"
-          value={connector.thickness ?? 2}
+          value={thickness}
           onChange={(e) => onUpdate({ thickness: Number(e.target.value) })}
-          title="Thickness"
+          aria-label="Thickness"
         />
+        <span className="thickness-num">{thickness}</span>
       </div>
 
-      {(connector.shape || 'orthogonal') !== 'curved' && (
+      {shape !== 'curved' && (
         <>
           <div className="conn-divider" />
           <div className="conn-group">
             <button
-              className={`ct-btn ${(connector.line_jumps ?? true) ? 'active' : ''}`}
+              className={`ct-btn ${lineJumps ? 'active' : ''}`}
               title="Line jumps"
-              onClick={() => onUpdate({ line_jumps: !(connector.line_jumps ?? true) })}
+              onClick={() => onUpdate({ line_jumps: !lineJumps })}
             >
-              <span className="ct-icon">∿</span>
+              <IconJump />
             </button>
           </div>
         </>
@@ -109,7 +125,9 @@ export default function ConnectorToolbar({ connector, onUpdate, onDelete, screen
       <div className="conn-divider" />
 
       <div className="conn-group">
-        <button className="ct-btn danger" title="Delete" onClick={onDelete}>🗑</button>
+        <button className="ct-btn danger" title="Delete" onClick={onDelete}>
+          <IconTrash />
+        </button>
       </div>
     </div>
   )
@@ -117,15 +135,15 @@ export default function ConnectorToolbar({ connector, onUpdate, onDelete, screen
 
 function DashPreview({ style }) {
   const dash =
-    style === 'dashed' ? '6 4' : style === 'dotted' ? '1 3' : undefined
+    style === 'dashed' ? '6 4' : style === 'dotted' ? '1.5 3' : undefined
   return (
-    <svg width="22" height="10" viewBox="0 0 22 10">
+    <svg width="22" height="14" viewBox="0 0 22 14">
       <line
         x1="2"
-        y1="5"
+        y1="7"
         x2="20"
-        y2="5"
-        stroke="#1f2330"
+        y2="7"
+        stroke="currentColor"
         strokeWidth="2"
         strokeLinecap="round"
         strokeDasharray={dash}

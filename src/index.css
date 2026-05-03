@@ -1,14 +1,39 @@
+:root {
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --surface-2: #f8f9fb;
+  --border: #e5e7ec;
+  --border-strong: #cdd2db;
+  --text: #1f2330;
+  --text-muted: #525a6b;
+  --text-soft: #8a93a3;
+  --accent: #3b82f6;
+  --accent-soft: #e8efff;
+  --accent-strong: #2563eb;
+  --danger: #ef4444;
+  --danger-soft: #fdecec;
+  --shadow-sm: 0 1px 2px rgba(15, 20, 35, 0.05);
+  --shadow-md: 0 4px 16px rgba(15, 20, 35, 0.08);
+  --shadow-lg: 0 12px 32px rgba(15, 20, 35, 0.12);
+  --radius-sm: 6px;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-}
-
-:root {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  font-size: 14px;
-  color: #1f2330;
-  background: #f5f6f8;
 }
 
 html, body, #root {
@@ -19,20 +44,37 @@ html, body, #root {
   overflow: hidden;
 }
 
-#root {
-  display: flex;
-  flex-direction: column;
-}
-
 button {
   font-family: inherit;
+  font-size: inherit;
   cursor: pointer;
   border: none;
   background: none;
   color: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 input, textarea, select {
   font-family: inherit;
   color: inherit;
 }
+
+input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline: none;
+}
+
+::selection { background: var(--accent-soft); }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(15, 20, 35, 0.12);
+  border-radius: 999px;
+  border: 2px solid var(--surface);
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(15, 20, 35, 0.24); }
