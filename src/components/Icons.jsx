@@ -294,6 +294,19 @@ export const IconExpandFull = (p) => (
   </svg>
 )
 
+export const IconCollapse = (p) => (
+  <svg {...base} {...p}>
+    <path d="M9 4v5H4" />
+    <path d="M4 9l5-5" />
+    <path d="M15 4v5h5" />
+    <path d="M20 9l-5-5" />
+    <path d="M9 20v-5H4" />
+    <path d="M4 15l5 5" />
+    <path d="M15 20v-5h5" />
+    <path d="M20 15l-5 5" />
+  </svg>
+)
+
 export const IconCircle = (p) => (
   <svg {...base} {...p}>
     <circle cx="12" cy="12" r="8" />

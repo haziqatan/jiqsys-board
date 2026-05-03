@@ -14,6 +14,8 @@ export default function Canvas({
   cards,
   connectors,
   statusOptions,
+  assigneeOptions,
+  tagOptions,
   selectedId,
   onSelect,
   onOpenDetail,
@@ -344,6 +346,8 @@ export default function Canvas({
             onResize={(w, h) => onUpdateCard(card.id, { width: w, height: h })}
             onTitleChange={(t) => onUpdateCard(card.id, { title: t })}
             statusOptions={statusOptions}
+            assigneeOptions={assigneeOptions}
+            tagOptions={tagOptions}
           />
         ))}
       </div>

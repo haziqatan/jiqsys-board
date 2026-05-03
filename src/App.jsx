@@ -20,11 +20,14 @@ import {
 } from './lib/db'
 import { DEFAULT_BOARD_ID, supabase } from './lib/supabase'
 import { DEFAULT_STATUS_OPTIONS, createStatusOption, normalizeStatus } from './lib/status'
+import { createOption, loadOptions, normalizeOption, saveOptions } from './lib/options'
 import './App.css'
 
 const isDetailCard = (card) => (card?.node_shape || 'rect') === 'rect'
 const ACTIVE_BOARD_KEY = 'jiqsys-active-board'
 const STATUS_OPTIONS_KEY = 'jiqsys-status-options'
+const ASSIGNEE_OPTIONS_KEY = 'jiqsys-assignee-options'
+const TAG_OPTIONS_KEY = 'jiqsys-tag-options'
 
 function loadStatusOptions() {
   try {
@@ -58,11 +61,21 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [statusOptions, setStatusOptions] = useState(loadStatusOptions)
+  const [assigneeOptions, setAssigneeOptions] = useState(() => loadOptions(ASSIGNEE_OPTIONS_KEY))
+  const [tagOptions, setTagOptions] = useState(() => loadOptions(TAG_OPTIONS_KEY))
 
   useEffect(() => {
     const editable = statusOptions.filter((option) => option.value)
     localStorage.setItem(STATUS_OPTIONS_KEY, JSON.stringify(editable))
   }, [statusOptions])
+  useEffect(() => saveOptions(ASSIGNEE_OPTIONS_KEY, assigneeOptions), [assigneeOptions])
+  useEffect(() => saveOptions(TAG_OPTIONS_KEY, tagOptions), [tagOptions])
+
+  useEffect(() => {
+    setAssigneeOptions((prev) => mergeMissingOptions(prev, cards.map((card) => card.assignee)))
+    setTagOptions((prev) => mergeMissingOptions(prev, cards.flatMap((card) => card.tags || [])))
+    setStatusOptions((prev) => mergeMissingOptions(prev, cards.map((card) => card.status)))
+  }, [cards])
 
   // Persist active board
   useEffect(() => {
@@ -312,6 +325,73 @@ export default function App() {
     updateCardsWithStatus(option.value, null)
   }, [statusOptions, updateCardsWithStatus])
 
+  const updateCardsWithAssignee = useCallback(async (fromAssignee, toAssignee) => {
+    const affected = cards.filter((card) => card.assignee === fromAssignee)
+    if (affected.length === 0) return
+
+    setCards((prev) =>
+      prev.map((card) =>
+        card.assignee === fromAssignee ? { ...card, assignee: toAssignee } : card,
+      ),
+    )
+    await Promise.all(
+      affected.map((card) => updateCard(card.id, { assignee: toAssignee }).catch(console.error)),
+    )
+  }, [cards])
+
+  const updateCardsWithTag = useCallback(async (fromTag, toTag) => {
+    const affected = cards.filter((card) => card.tags?.includes(fromTag))
+    if (affected.length === 0) return
+
+    setCards((prev) =>
+      prev.map((card) => {
+        if (!card.tags?.includes(fromTag)) return card
+        const nextTags = toTag
+          ? [...new Set(card.tags.map((tag) => (tag === fromTag ? toTag : tag)))]
+          : card.tags.filter((tag) => tag !== fromTag)
+        return { ...card, tags: nextTags }
+      }),
+    )
+    await Promise.all(
+      affected.map((card) => {
+        const nextTags = toTag
+          ? [...new Set(card.tags.map((tag) => (tag === fromTag ? toTag : tag)))]
+          : card.tags.filter((tag) => tag !== fromTag)
+        return updateCard(card.id, { tags: nextTags }).catch(console.error)
+      }),
+    )
+  }, [cards])
+
+  const handleCreateAssignee = useCallback((label, color) => {
+    return createLibraryOption(label, color, assigneeOptions, setAssigneeOptions)
+  }, [assigneeOptions])
+
+  const handleUpdateAssignee = useCallback((id, patch) => {
+    return updateLibraryOption(id, patch, assigneeOptions, setAssigneeOptions, updateCardsWithAssignee)
+  }, [assigneeOptions, updateCardsWithAssignee])
+
+  const handleDeleteAssignee = useCallback((id) => {
+    const option = assigneeOptions.find((item) => item.id === id)
+    if (!option?.value) return
+    setAssigneeOptions((prev) => prev.filter((item) => item.id !== id))
+    updateCardsWithAssignee(option.value, null)
+  }, [assigneeOptions, updateCardsWithAssignee])
+
+  const handleCreateTag = useCallback((label, color) => {
+    return createLibraryOption(label, color, tagOptions, setTagOptions)
+  }, [tagOptions])
+
+  const handleUpdateTag = useCallback((id, patch) => {
+    return updateLibraryOption(id, patch, tagOptions, setTagOptions, updateCardsWithTag)
+  }, [tagOptions, updateCardsWithTag])
+
+  const handleDeleteTag = useCallback((id) => {
+    const option = tagOptions.find((item) => item.id === id)
+    if (!option?.value) return
+    setTagOptions((prev) => prev.filter((item) => item.id !== id))
+    updateCardsWithTag(option.value, null)
+  }, [tagOptions, updateCardsWithTag])
+
   const handleDeleteCard = useCallback(
     async (id) => {
       setCards((prev) => prev.filter((c) => c.id !== id))
@@ -379,10 +459,18 @@ export default function App() {
           key={visibleDetailCard.id}
           card={visibleDetailCard}
           statusOptions={statusOptions}
+          assigneeOptions={assigneeOptions}
+          tagOptions={tagOptions}
           onUpdate={(patch) => handleUpdateCard(visibleDetailCard.id, patch)}
           onCreateStatus={handleCreateStatus}
           onUpdateStatus={handleUpdateStatus}
           onDeleteStatus={handleDeleteStatus}
+          onCreateAssignee={handleCreateAssignee}
+          onUpdateAssignee={handleUpdateAssignee}
+          onDeleteAssignee={handleDeleteAssignee}
+          onCreateTag={handleCreateTag}
+          onUpdateTag={handleUpdateTag}
+          onDeleteTag={handleDeleteTag}
           onDelete={() => handleDeleteCard(visibleDetailCard.id)}
           onClose={() => setDetailId(null)}
         />
@@ -393,6 +481,8 @@ export default function App() {
         cards={cards}
         connectors={connectors}
         statusOptions={statusOptions}
+        assigneeOptions={assigneeOptions}
+        tagOptions={tagOptions}
         selectedId={selectedId}
         onSelect={setSelectedId}
         onOpenDetail={setDetailId}
@@ -412,4 +502,54 @@ export default function App() {
       {error && <div className="status-pill error">{error}</div>}
     </div>
   )
+}
+
+function mergeMissingOptions(options, values) {
+  const existing = new Set(options.map((option) => option.value?.toLowerCase()).filter(Boolean))
+  const additions = values.reduce((next, value) => {
+    const normalized = normalizeOption(value)
+    if (!normalized || existing.has(normalized.toLowerCase())) return next
+    existing.add(normalized.toLowerCase())
+    const option = createOption(normalized)
+    if (option) next.push(option)
+    return next
+  }, [])
+
+  if (additions.length === 0) return options
+  return [...options, ...additions]
+}
+
+function createLibraryOption(label, color, options, setOptions) {
+  const option = createOption(label, color)
+  if (!option) return null
+  const exists = options.find(
+    (item) => item.value?.toLowerCase() === option.value.toLowerCase(),
+  )
+  if (exists) return exists
+
+  setOptions((prev) => [...prev, option])
+  return option
+}
+
+function updateLibraryOption(id, patch, options, setOptions, updateCards) {
+  const current = options.find((option) => option.id === id)
+  if (!current) return null
+  const nextLabel = patch.label != null ? normalizeOption(patch.label) : current.label
+  const nextColor = patch.color || current.color
+  if (!nextLabel) return null
+  const duplicate = options.find(
+    (option) => option.id !== id && option.value?.toLowerCase() === nextLabel.toLowerCase(),
+  )
+  if (duplicate) return null
+
+  const rename = nextLabel !== current.value ? { from: current.value, to: nextLabel } : null
+  setOptions((prev) =>
+    prev.map((option) =>
+      option.id === id
+        ? { ...option, label: nextLabel, value: nextLabel, color: nextColor }
+        : option,
+    ),
+  )
+  if (rename) updateCards(rename.from, rename.to)
+  return rename?.to || current.value
 }

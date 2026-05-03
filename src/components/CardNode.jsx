@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { getStatusColor } from '../lib/status'
+import { getOptionColor } from '../lib/options'
 import '../styles/CardNode.css'
 
 const SHAPE_CLIP = {
@@ -46,6 +47,8 @@ export default function CardNode({
   onResize,
   onTitleChange,
   statusOptions,
+  assigneeOptions,
+  tagOptions,
 }) {
   const nodeShape = card.node_shape || 'rect'
   const [editingTitle, setEditingTitle] = useState(false)
@@ -264,6 +267,8 @@ export default function CardNode({
 
   // ── RECT CARD ────────────────────────────────────────────────────────
   const statusDot = card.status ? getStatusColor(card.status, statusOptions) : null
+  const assigneeDot = card.assignee ? getOptionColor(card.assignee, assigneeOptions) : null
+  const tagDot = card.tags?.[0] ? getOptionColor(card.tags[0], tagOptions) : null
 
   return (
     <div
@@ -309,12 +314,18 @@ export default function CardNode({
                 {card.status}
               </span>
             )}
-            {card.assignee && <span className="card-meta-pill">@{card.assignee}</span>}
+            {card.assignee && (
+              <span className="card-meta-pill">
+                <span className="dot" style={{ background: assigneeDot }} />
+                @{card.assignee}
+              </span>
+            )}
             {card.estimate != null && card.estimate !== '' && (
               <span className="card-meta-pill">{card.estimate}p</span>
             )}
             {card.tags?.length > 0 && (
               <span className="card-meta-pill">
+                <span className="dot" style={{ background: tagDot }} />
                 #{card.tags[0]}{card.tags.length > 1 ? ` +${card.tags.length - 1}` : ''}
               </span>
             )}
