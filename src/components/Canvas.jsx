@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import CardNode from './CardNode'
-import Connector, { pickAnchor, rectCenter } from './Connector'
+import Connector, { pickAnchor, rectCenter, getPathSegments } from './Connector'
 import ConnectorToolbar from './ConnectorToolbar'
 import '../styles/Canvas.css'
 
@@ -37,20 +37,25 @@ export default function Canvas({
     return m
   }, [cards])
 
-  // Pre-compute world-space anchor segments for every connector (used for line-jump crossings)
+  // For each connector, compute its rendered line segments in world+offset coords.
+  // Used to detect crossings between connectors so we can draw line-jump arcs.
   const connectorSegments = useMemo(() => {
     const map = {}
     for (const conn of connectors) {
       const src = cardsById[conn.source_card_id]
       const tgt = cardsById[conn.target_card_id]
       if (!src || !tgt) continue
+      const shape = conn.shape || 'orthogonal'
+      if (shape === 'curved') {
+        map[conn.id] = []
+        continue
+      }
       const sAnchor = pickAnchor(src, rectCenter(tgt), conn.source_side)
       const tAnchor = pickAnchor(tgt, rectCenter(src), conn.target_side)
-      map[conn.id] = {
-        a: { x: sAnchor.x + WORLD_OFFSET, y: sAnchor.y + WORLD_OFFSET },
-        b: { x: tAnchor.x + WORLD_OFFSET, y: tAnchor.y + WORLD_OFFSET },
-        shape: conn.shape || 'orthogonal',
-      }
+      const S = { ...sAnchor, x: sAnchor.x + WORLD_OFFSET, y: sAnchor.y + WORLD_OFFSET }
+      const T = { ...tAnchor, x: tAnchor.x + WORLD_OFFSET, y: tAnchor.y + WORLD_OFFSET }
+      const segs = getPathSegments(S, T, shape)
+      map[conn.id] = segs.map(([a, b]) => ({ a, b }))
     }
     return map
   }, [connectors, cardsById])
@@ -255,12 +260,13 @@ export default function Canvas({
             const src = cardsById[conn.source_card_id]
             const tgt = cardsById[conn.target_card_id]
             if (!src || !tgt) return null
-            const crossings =
-              (conn.shape || 'orthogonal') === 'straight' && (conn.line_jumps ?? true)
-                ? Object.entries(connectorSegments)
-                    .filter(([id, seg]) => id !== conn.id && seg.shape === 'straight')
-                    .map(([, seg]) => seg)
-                : []
+            const shape = conn.shape || 'orthogonal'
+            const wantsJumps = (conn.line_jumps ?? true) && shape !== 'curved'
+            const crossings = wantsJumps
+              ? Object.entries(connectorSegments)
+                  .filter(([id]) => id !== conn.id)
+                  .flatMap(([, segs]) => segs)
+              : []
             return (
               <Connector
                 key={conn.id}

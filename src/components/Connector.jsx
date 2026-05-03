@@ -33,25 +33,54 @@ function isHorizontal(side) {
   return side === 'left' || side === 'right'
 }
 
-function orthogonalPath(s, t) {
-  const sH = isHorizontal(s.side)
-  const tH = isHorizontal(t.side)
-  if (sH && tH) {
-    const midX = (s.x + t.x) / 2
-    return `M ${s.x} ${s.y} L ${midX} ${s.y} L ${midX} ${t.y} L ${t.x} ${t.y}`
+// Returns an array of [from, to] line segments tracing the connector's path.
+// Used for both rendering and line-jump intersection tests.
+function getPathSegments(s, t, shape) {
+  if (shape === 'straight') return [[s, t]]
+  if (shape === 'orthogonal') {
+    const sH = isHorizontal(s.side)
+    const tH = isHorizontal(t.side)
+    if (sH && tH) {
+      const midX = (s.x + t.x) / 2
+      return [
+        [s, { x: midX, y: s.y }],
+        [{ x: midX, y: s.y }, { x: midX, y: t.y }],
+        [{ x: midX, y: t.y }, t],
+      ]
+    }
+    if (!sH && !tH) {
+      const midY = (s.y + t.y) / 2
+      return [
+        [s, { x: s.x, y: midY }],
+        [{ x: s.x, y: midY }, { x: t.x, y: midY }],
+        [{ x: t.x, y: midY }, t],
+      ]
+    }
+    if (sH && !tH) {
+      return [
+        [s, { x: t.x, y: s.y }],
+        [{ x: t.x, y: s.y }, t],
+      ]
+    }
+    return [
+      [s, { x: s.x, y: t.y }],
+      [{ x: s.x, y: t.y }, t],
+    ]
   }
-  if (!sH && !tH) {
-    const midY = (s.y + t.y) / 2
-    return `M ${s.x} ${s.y} L ${s.x} ${midY} L ${t.x} ${midY} L ${t.x} ${t.y}`
-  }
-  if (sH && !tH) {
-    return `M ${s.x} ${s.y} L ${t.x} ${s.y} L ${t.x} ${t.y}`
-  }
-  return `M ${s.x} ${s.y} L ${s.x} ${t.y} L ${t.x} ${t.y}`
+  return []
 }
 
-function straightPath(s, t) {
-  return `M ${s.x} ${s.y} L ${t.x} ${t.y}`
+function curvedPath(s, t) {
+  const sH = isHorizontal(s.side)
+  const tH = isHorizontal(t.side)
+  const dist = Math.max(40, Math.hypot(t.x - s.x, t.y - s.y) * 0.4)
+  const c1 = sH
+    ? { x: s.x + (s.side === 'right' ? dist : -dist), y: s.y }
+    : { x: s.x, y: s.y + (s.side === 'bottom' ? dist : -dist) }
+  const c2 = tH
+    ? { x: t.x + (t.side === 'right' ? dist : -dist), y: t.y }
+    : { x: t.x, y: t.y + (t.side === 'bottom' ? dist : -dist) }
+  return `M ${s.x} ${s.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${t.x} ${t.y}`
 }
 
 function segmentIntersect(p1, p2, p3, p4) {
@@ -67,47 +96,58 @@ function segmentIntersect(p1, p2, p3, p4) {
   return null
 }
 
-function straightPathWithJumps(s, t, otherSegments, radius = 6) {
-  if (!otherSegments?.length) return straightPath(s, t)
-  const intersections = []
-  for (const seg of otherSegments) {
-    const p = segmentIntersect(s, t, seg.a, seg.b)
-    if (p) intersections.push(p)
+function buildPathWithJumps(segments, otherSegments, radius = 6) {
+  if (!segments.length) return ''
+  let d = `M ${segments[0][0].x} ${segments[0][0].y}`
+  for (const [a, b] of segments) {
+    if (!otherSegments?.length) {
+      d += ` L ${b.x} ${b.y}`
+      continue
+    }
+    const intersections = []
+    for (const seg of otherSegments) {
+      const p = segmentIntersect(a, b, seg.a, seg.b)
+      if (p) intersections.push(p)
+    }
+    if (!intersections.length) {
+      d += ` L ${b.x} ${b.y}`
+      continue
+    }
+    const dx = b.x - a.x
+    const dy = b.y - a.y
+    const len = Math.hypot(dx, dy)
+    if (len < radius * 2.5) {
+      d += ` L ${b.x} ${b.y}`
+      continue
+    }
+    const ux = dx / len
+    const uy = dy / len
+    // Filter out crossings too close to segment endpoints
+    const filtered = intersections.filter((p) => {
+      const tt = (p.x - a.x) * ux + (p.y - a.y) * uy
+      return tt > radius * 1.2 && tt < len - radius * 1.2
+    })
+    filtered.sort((p1, p2) => {
+      const t1 = (p1.x - a.x) * ux + (p1.y - a.y) * uy
+      const t2 = (p2.x - a.x) * ux + (p2.y - a.y) * uy
+      return t1 - t2
+    })
+    for (const p of filtered) {
+      const before = { x: p.x - ux * radius, y: p.y - uy * radius }
+      const after = { x: p.x + ux * radius, y: p.y + uy * radius }
+      d += ` L ${before.x} ${before.y}`
+      d += ` A ${radius} ${radius} 0 0 1 ${after.x} ${after.y}`
+    }
+    d += ` L ${b.x} ${b.y}`
   }
-  if (!intersections.length) return straightPath(s, t)
-  const dx = t.x - s.x
-  const dy = t.y - s.y
-  const len = Math.hypot(dx, dy)
-  if (len < 1) return straightPath(s, t)
-  const ux = dx / len
-  const uy = dy / len
-  intersections.sort((a, b) => {
-    const ta = (a.x - s.x) * ux + (a.y - s.y) * uy
-    const tb = (b.x - s.x) * ux + (b.y - s.y) * uy
-    return ta - tb
-  })
-  let d = `M ${s.x} ${s.y}`
-  for (const p of intersections) {
-    const before = { x: p.x - ux * radius, y: p.y - uy * radius }
-    const after = { x: p.x + ux * radius, y: p.y + uy * radius }
-    d += ` L ${before.x} ${before.y}`
-    d += ` A ${radius} ${radius} 0 0 1 ${after.x} ${after.y}`
-  }
-  d += ` L ${t.x} ${t.y}`
   return d
 }
 
-function curvedPath(s, t) {
-  const sH = isHorizontal(s.side)
-  const tH = isHorizontal(t.side)
-  const dist = Math.max(40, Math.hypot(t.x - s.x, t.y - s.y) * 0.4)
-  const c1 = sH
-    ? { x: s.x + (s.side === 'right' ? dist : -dist), y: s.y }
-    : { x: s.x, y: s.y + (s.side === 'bottom' ? dist : -dist) }
-  const c2 = tH
-    ? { x: t.x + (t.side === 'right' ? dist : -dist), y: t.y }
-    : { x: t.x, y: t.y + (t.side === 'bottom' ? dist : -dist) }
-  return `M ${s.x} ${s.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${t.x} ${t.y}`
+function buildPlainPath(segments) {
+  if (!segments.length) return ''
+  let d = `M ${segments[0][0].x} ${segments[0][0].y}`
+  for (const [, b] of segments) d += ` L ${b.x} ${b.y}`
+  return d
 }
 
 function dashArray(style, thickness) {
@@ -144,19 +184,20 @@ export default function Connector({
   const thickness = conn?.thickness ?? 2
   const arrowStart = conn?.arrow_start ?? false
   const arrowEnd = conn?.arrow_end ?? true
+  const lineJumps = conn?.line_jumps ?? true
 
   let d
-  if (ghost) d = straightPath(S, T)
-  else if (shape === 'straight') {
-    d = (conn?.line_jumps ?? true)
-      ? straightPathWithJumps(S, T, crossingSegments)
-      : straightPath(S, T)
-  } else if (shape === 'curved') d = curvedPath(S, T)
-  else d = orthogonalPath(S, T)
+  if (shape === 'curved') {
+    d = curvedPath(S, T)
+  } else {
+    const segments = getPathSegments(S, T, ghost ? 'straight' : shape)
+    d = !ghost && lineJumps
+      ? buildPathWithJumps(segments, crossingSegments)
+      : buildPlainPath(segments)
+  }
 
   const stroke = ghost ? '#9ca3af' : selected ? '#3b82f6' : '#1f2330'
   const strokeWidth = ghost ? 1.6 : thickness
-
   const dash = dashArray(style, thickness)
 
   return (
@@ -201,4 +242,4 @@ export default function Connector({
   )
 }
 
-export { pickAnchor, rectCenter }
+export { pickAnchor, rectCenter, getPathSegments }

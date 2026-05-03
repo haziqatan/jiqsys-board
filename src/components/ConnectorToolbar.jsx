@@ -91,14 +91,14 @@ export default function ConnectorToolbar({ connector, onUpdate, onDelete, screen
         />
       </div>
 
-      {connector.shape === 'straight' && (
+      {(connector.shape || 'orthogonal') !== 'curved' && (
         <>
           <div className="conn-divider" />
           <div className="conn-group">
             <button
-              className={`ct-btn ${connector.line_jumps ? 'active' : ''}`}
+              className={`ct-btn ${(connector.line_jumps ?? true) ? 'active' : ''}`}
               title="Line jumps"
-              onClick={() => onUpdate({ line_jumps: !connector.line_jumps })}
+              onClick={() => onUpdate({ line_jumps: !(connector.line_jumps ?? true) })}
             >
               <span className="ct-icon">∿</span>
             </button>
