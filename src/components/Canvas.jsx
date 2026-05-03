@@ -112,14 +112,20 @@ export default function Canvas({
       return
     }
 
-    if (e.button === 0 && isEmpty && tool.startsWith('card')) {
+    if (e.button === 0 && isEmpty && (tool === 'card' || tool === 'text' || tool.startsWith('card-'))) {
       const { x, y } = screenToWorld(e.clientX, e.clientY)
       const shapeMap = {
-        'card':         { node_shape: 'rect',          w: 240, h: 100, title: 'New card', color: '#3b82f6' },
-        'card-circle':  { node_shape: 'circle',        w: 140, h: 140, title: '', color: '#ffffff' },
-        'card-diamond': { node_shape: 'diamond',       w: 160, h: 160, title: '', color: '#ffffff' },
-        'card-hex':     { node_shape: 'hexagon',       w: 180, h: 160, title: '', color: '#ffffff' },
-        'card-para':    { node_shape: 'parallelogram', w: 240, h: 100, title: '', color: '#ffffff' },
+        'card':            { node_shape: 'rect',          w: 240, h: 100, title: 'New card', color: '#3b82f6' },
+        'text':            { node_shape: 'text',          w: 140, h: 36,  title: 'Text',     color: 'transparent' },
+        'card-rect-shape': { node_shape: 'rectangle',     w: 180, h: 100, title: '',         color: '#dbeafe' },
+        'card-square':     { node_shape: 'square',        w: 120, h: 120, title: '',         color: '#dbeafe' },
+        'card-circle':     { node_shape: 'circle',        w: 140, h: 140, title: '',         color: '#dbeafe' },
+        'card-diamond':    { node_shape: 'diamond',       w: 160, h: 160, title: '',         color: '#dbeafe' },
+        'card-hex':        { node_shape: 'hexagon',       w: 180, h: 160, title: '',         color: '#dbeafe' },
+        'card-para':       { node_shape: 'parallelogram', w: 220, h: 100, title: '',         color: '#dbeafe' },
+        'card-triangle':   { node_shape: 'triangle',      w: 160, h: 140, title: '',         color: '#dbeafe' },
+        'card-star':       { node_shape: 'star',          w: 160, h: 160, title: '',         color: '#fef3c7' },
+        'card-arrow':      { node_shape: 'arrow',         w: 200, h: 90,  title: '',         color: '#dbeafe' },
       }
       const { node_shape, w, h, title, color } = shapeMap[tool] || shapeMap['card']
       onCreateCard(x - w / 2, y - h / 2, { node_shape, width: w, height: h, title, color })
@@ -204,6 +210,7 @@ export default function Canvas({
       if (!isTyping(e.target) && !e.metaKey && !e.ctrlKey && !e.altKey) {
         if (e.key === 'v' || e.key === 'V') setTool('select')
         if (e.key === 'c' || e.key === 'C') setTool('card')
+        if (e.key === 't' || e.key === 'T') setTool('text')
         if (e.key === 'Escape' && tool !== 'select') setTool('select')
       }
     }
@@ -247,7 +254,7 @@ export default function Canvas({
 
   const cursorClass = panning
     ? 'cursor-grabbing'
-    : tool.startsWith('card')
+    : (tool === 'card' || tool === 'text' || tool.startsWith('card-'))
     ? 'cursor-add'
     : 'cursor-grab'
 

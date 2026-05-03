@@ -1,15 +1,22 @@
 import { useEffect, useRef, useState } from 'react'
 import {
-  IconCursor, IconCard,
-  IconShapes, IconCircle, IconDiamond, IconHexagon, IconParallelogram,
+  IconCursor, IconCard, IconText,
+  IconShapes, IconRectangle, IconSquare,
+  IconCircle, IconDiamond, IconHexagon, IconParallelogram,
+  IconTriangle, IconStar, IconArrowShape,
 } from './Icons'
 import '../styles/Toolbar.css'
 
 const SHAPE_TOOLS = [
-  { id: 'card-circle',  label: 'Circle',        Icon: IconCircle },
-  { id: 'card-diamond', label: 'Diamond',       Icon: IconDiamond },
-  { id: 'card-hex',     label: 'Hexagon',       Icon: IconHexagon },
-  { id: 'card-para',    label: 'Parallelogram', Icon: IconParallelogram },
+  { id: 'card-rect-shape', label: 'Rectangle',     Icon: IconRectangle },
+  { id: 'card-square',     label: 'Square',        Icon: IconSquare },
+  { id: 'card-circle',     label: 'Circle',        Icon: IconCircle },
+  { id: 'card-diamond',    label: 'Diamond',       Icon: IconDiamond },
+  { id: 'card-hex',        label: 'Hexagon',       Icon: IconHexagon },
+  { id: 'card-para',       label: 'Parallelogram', Icon: IconParallelogram },
+  { id: 'card-triangle',   label: 'Triangle',      Icon: IconTriangle },
+  { id: 'card-star',       label: 'Star',          Icon: IconStar },
+  { id: 'card-arrow',      label: 'Arrow',         Icon: IconArrowShape },
 ]
 
 export default function Toolbar({ tool, setTool }) {
@@ -20,7 +27,6 @@ export default function Toolbar({ tool, setTool }) {
   const ShapeIcon = activeShape ? activeShape.Icon : IconShapes
   const isShapeActive = !!activeShape
 
-  // Close picker on outside click
   useEffect(() => {
     const onDown = (e) => {
       if (pickerRef.current && !pickerRef.current.contains(e.target)) {
@@ -52,13 +58,21 @@ export default function Toolbar({ tool, setTool }) {
       <button
         className={`tool-btn ${tool === 'card' ? 'active' : ''}`}
         onClick={() => { setTool('card'); setPickerOpen(false) }}
-        aria-label="Add card"
+        aria-label="Card"
       >
         <IconCard />
         <span className="tool-tooltip">Card <kbd>C</kbd></span>
       </button>
 
-      {/* Shapes button — toggles picker */}
+      <button
+        className={`tool-btn ${tool === 'text' ? 'active' : ''}`}
+        onClick={() => { setTool('text'); setPickerOpen(false) }}
+        aria-label="Text"
+      >
+        <IconText />
+        <span className="tool-tooltip">Text <kbd>T</kbd></span>
+      </button>
+
       <div className="shapes-wrap" ref={pickerRef}>
         <button
           className={`tool-btn ${isShapeActive ? 'active' : ''}`}
@@ -67,7 +81,7 @@ export default function Toolbar({ tool, setTool }) {
           aria-expanded={pickerOpen}
         >
           <ShapeIcon />
-          <span className="tool-tooltip">Shapes</span>
+          <span className="tool-tooltip">Shapes <kbd>S</kbd></span>
         </button>
 
         {pickerOpen && (

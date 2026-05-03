@@ -12,6 +12,41 @@ export async function ensureBoard(id = DEFAULT_BOARD_ID) {
   return created
 }
 
+export async function listBoards() {
+  const { data, error } = await supabase
+    .from('boards')
+    .select('*')
+    .order('created_at', { ascending: true })
+  if (error) throw error
+  return data || []
+}
+
+export async function createBoard(name = 'New board') {
+  const { data, error } = await supabase
+    .from('boards')
+    .insert({ name })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function renameBoard(id, name) {
+  const { data, error } = await supabase
+    .from('boards')
+    .update({ name })
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function deleteBoard(id) {
+  const { error } = await supabase.from('boards').delete().eq('id', id)
+  if (error) throw error
+}
+
 export async function fetchCards(boardId) {
   const { data, error } = await supabase
     .from('cards')

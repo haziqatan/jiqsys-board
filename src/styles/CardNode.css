@@ -175,9 +175,68 @@
   z-index: 2;
   padding: 4px 0;
 }
-/* Wider usable area for parallelogram and hexagon */
+/* Wider usable area per shape */
 .shape-parallelogram .shape-text-edit { width: 72%; }
-.shape-hexagon .shape-text-edit       { width: 68%; }
+.shape-hexagon       .shape-text-edit { width: 68%; }
+.shape-rectangle     .shape-text-edit { width: 80%; }
+.shape-square        .shape-text-edit { width: 76%; }
+.shape-triangle      .shape-text-edit { width: 50%; transform: translate(-50%, -30%); }
+.shape-star          .shape-text-edit { width: 50%; }
+.shape-arrow         .shape-text-edit { width: 50%; }
+
+/* Triangle text alignment — text sits below apex */
+.shape-triangle .shape-label { padding-top: 32%; align-items: flex-start; }
+.shape-arrow    .shape-label { padding-right: 18%; }
+.shape-star     .shape-label { padding: 18% 24%; }
+
+/* ── Text node ── plain text on canvas, no fill, no border by default */
+.card-node.text-node {
+  border: 1px dashed transparent;
+  background: transparent;
+  box-shadow: none;
+  padding: 4px;
+}
+.card-node.text-node:hover {
+  border-color: var(--border-strong);
+  box-shadow: none;
+}
+.card-node.text-node.selected {
+  border: 1px dashed var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+  background: rgba(255,255,255,.6);
+}
+
+.text-node-label {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0 4px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.4;
+  word-break: break-word;
+  white-space: pre-wrap;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.text-node-edit {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.4;
+  resize: none;
+  overflow: hidden;
+  padding: 0 4px;
+}
 
 /* ── Link handles ── */
 .link-handle {

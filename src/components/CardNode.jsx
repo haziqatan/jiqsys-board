@@ -12,18 +12,33 @@ const SHAPE_CLIP = {
   diamond:       'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)',
   hexagon:       'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)',
   parallelogram: 'polygon(12% 0%, 100% 0%, 88% 100%, 0% 100%)',
+  triangle:      'polygon(50% 4%, 100% 96%, 0% 96%)',
+  star:          'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)',
+  arrow:         'polygon(0% 30%, 65% 30%, 65% 5%, 100% 50%, 65% 95%, 65% 70%, 0% 70%)',
 }
 
 // Extra vertical padding around textarea inside each shape (compensates for clip whitespace)
-const SHAPE_PAD = { circle: 36, diamond: 70, hexagon: 50, parallelogram: 28 }
+const SHAPE_PAD = {
+  rectangle: 24, square: 24, circle: 36,
+  diamond: 70, hexagon: 50, parallelogram: 28,
+  triangle: 60, star: 70, arrow: 40,
+}
 
 const MIN_SIZE = {
   rect:          { w: 140, h: 60  },
+  text:          { w: 80,  h: 28  },
+  rectangle:     { w: 120, h: 70  },
+  square:        { w: 100, h: 100 },
   circle:        { w: 80,  h: 80  },
   diamond:       { w: 110, h: 110 },
   hexagon:       { w: 130, h: 110 },
   parallelogram: { w: 150, h: 72  },
+  triangle:      { w: 130, h: 110 },
+  star:          { w: 130, h: 130 },
+  arrow:         { w: 160, h: 80  },
 }
+
+const ASPECT_LOCKED = new Set(['circle', 'square'])
 
 export default function CardNode({
   card,
@@ -73,7 +88,7 @@ export default function CardNode({
       const min = MIN_SIZE[shape] || MIN_SIZE.rect
       let w = Math.max(min.w, resizing.startW + dx)
       let h = Math.max(min.h, resizing.startH + dy)
-      if (shape === 'circle') { const s = Math.max(w, h); w = s; h = s }
+      if (ASPECT_LOCKED.has(shape)) { const s = Math.max(w, h); w = s; h = s }
       onResize(w, h)
     }
     const onUp = () => setResizing(null)
@@ -107,7 +122,7 @@ export default function CardNode({
     if (editH !== null) {
       const min = MIN_SIZE[nodeShape] || MIN_SIZE.rect
       const newH = Math.max(min.h, editH)
-      const newW = nodeShape === 'circle' ? newH : card.width
+      const newW = ASPECT_LOCKED.has(nodeShape) ? newH : card.width
       onResize(newW, newH)
       setEditH(null)
     }
@@ -116,7 +131,7 @@ export default function CardNode({
 
   const showHandles = selected || hovered
   const displayH = editH ?? card.height
-  const displayW = (nodeShape === 'circle' && editH != null) ? editH : card.width
+  const displayW = (ASPECT_LOCKED.has(nodeShape) && editH != null) ? editH : card.width
 
   // Shared: link handles on all four sides
   const handles = showHandles && (
@@ -138,10 +153,61 @@ export default function CardNode({
     </div>
   )
 
+  // ── TEXT NODE — plain text on canvas, no bg ─────────────────────────
+  if (nodeShape === 'text') {
+    const handleInput = (e) => {
+      const ta = e.target
+      ta.style.height = '0px'
+      const min = MIN_SIZE.text
+      setEditH(Math.max(min.h, ta.scrollHeight + 8))
+      setDraftTitle(ta.value)
+    }
+    const taHeight = Math.max(20, displayH - 8)
+    return (
+      <div
+        className={`card-node text-node${selected ? ' selected' : ''}`}
+        style={{ left: card.x, top: card.y, width: displayW, height: displayH }}
+        onMouseDown={(e) => { if (editingTitle) return; onMouseDown(e) }}
+        onDoubleClick={(e) => { e.stopPropagation(); setEditingTitle(true) }}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+      >
+        {editingTitle ? (
+          <textarea
+            ref={titleRef}
+            className="text-node-edit"
+            value={draftTitle}
+            style={{ height: taHeight }}
+            onChange={handleInput}
+            onBlur={commitTitle}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitTitle() }
+              if (e.key === 'Escape') { setDraftTitle(card.title); setEditingTitle(false) }
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+          />
+        ) : (
+          <div
+            className="text-node-label"
+            onDoubleClick={(e) => { e.stopPropagation(); setEditingTitle(true) }}
+          >
+            {card.title || 'Text'}
+          </div>
+        )}
+        {handles}
+        {resizeHandle}
+      </div>
+    )
+  }
+
   // ── SHAPE NODE (non-rect) ────────────────────────────────────────────
   if (nodeShape !== 'rect') {
     const clipPath = SHAPE_CLIP[nodeShape]
-    const isCircle = nodeShape === 'circle'
+    const usesBorderRadius =
+      nodeShape === 'circle' || nodeShape === 'rectangle' || nodeShape === 'square'
+    const borderRadius =
+      nodeShape === 'circle' ? '50%' :
+      (nodeShape === 'rectangle' || nodeShape === 'square') ? 'var(--radius)' : 0
     const pad = SHAPE_PAD[nodeShape] ?? 36
     const taHeight = Math.max(40, displayH - pad)
 
@@ -167,7 +233,7 @@ export default function CardNode({
           className="shape-bg"
           style={{
             background: card.color || 'var(--accent-soft)',
-            ...(isCircle ? { borderRadius: '50%' } : { clipPath }),
+            ...(usesBorderRadius ? { borderRadius } : { clipPath }),
           }}
         />
 

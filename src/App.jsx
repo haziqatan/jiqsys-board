@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import Canvas from './components/Canvas'
 import Toolbar from './components/Toolbar'
 import CardDetail from './components/CardDetail'
+import BoardMenu from './components/BoardMenu'
 import {
   ensureBoard,
   fetchCards,
@@ -12,14 +13,22 @@ import {
   createConnector,
   updateConnector,
   deleteConnector,
+  listBoards,
+  createBoard,
+  renameBoard,
+  deleteBoard,
 } from './lib/db'
 import { DEFAULT_BOARD_ID, supabase } from './lib/supabase'
 import './App.css'
 
 const isDetailCard = (card) => (card?.node_shape || 'rect') === 'rect'
+const ACTIVE_BOARD_KEY = 'jiqsys-active-board'
 
 export default function App() {
-  const [boardId] = useState(DEFAULT_BOARD_ID)
+  const [boards, setBoards] = useState([])
+  const [boardId, setBoardId] = useState(() => {
+    return localStorage.getItem(ACTIVE_BOARD_KEY) || DEFAULT_BOARD_ID
+  })
   const [cards, setCards] = useState([])
   const [connectors, setConnectors] = useState([])
   const [selectedId, setSelectedId] = useState(null)
@@ -28,12 +37,17 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
+  // Persist active board
+  useEffect(() => {
+    if (boardId) localStorage.setItem(ACTIVE_BOARD_KEY, boardId)
+  }, [boardId])
+
+  // Browser pinch-zoom prevention
   useEffect(() => {
     const preventBrowserPinchZoom = (event) => {
       if (event.ctrlKey || event.metaKey) event.preventDefault()
     }
     const preventGestureZoom = (event) => event.preventDefault()
-
     document.addEventListener('wheel', preventBrowserPinchZoom, { passive: false })
     document.addEventListener('gesturestart', preventGestureZoom, { passive: false })
     document.addEventListener('gesturechange', preventGestureZoom, { passive: false })
@@ -44,8 +58,47 @@ export default function App() {
     }
   }, [])
 
+  // Load board list
+  const refreshBoards = useCallback(async () => {
+    try {
+      const bs = await listBoards()
+      setBoards(bs)
+      // If active board no longer exists, fall back to first available
+      if (bs.length > 0 && !bs.find((b) => b.id === boardId)) {
+        setBoardId(bs[0].id)
+      }
+      return bs
+    } catch (e) {
+      setError(e.message)
+      return []
+    }
+  }, [boardId])
+
+  // Initial load: ensure default board exists, then list all boards
   useEffect(() => {
     let cancelled = false
+    ;(async () => {
+      try {
+        await ensureBoard(boardId)
+        const bs = await listBoards()
+        if (cancelled) return
+        setBoards(bs)
+      } catch (e) {
+        if (!cancelled) setError(e.message)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Load cards/connectors whenever boardId changes
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setSelectedId(null)
+    setDetailId(null)
     ;(async () => {
       try {
         await ensureBoard(boardId)
@@ -57,7 +110,7 @@ export default function App() {
         setCards(c)
         setConnectors(conns)
       } catch (e) {
-        setError(e.message)
+        if (!cancelled) setError(e.message)
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -67,6 +120,7 @@ export default function App() {
     }
   }, [boardId])
 
+  // Realtime subscription scoped to current board
   useEffect(() => {
     const channel = supabase
       .channel(`board:${boardId}`)
@@ -114,6 +168,42 @@ export default function App() {
     }
   }, [boardId])
 
+  // ── Board handlers ──
+  const handleCreateBoard = useCallback(async () => {
+    try {
+      const b = await createBoard('Untitled board')
+      setBoards((prev) => [...prev, b])
+      setBoardId(b.id)
+    } catch (e) {
+      setError(e.message)
+    }
+  }, [])
+
+  const handleRenameBoard = useCallback(async (id, name) => {
+    setBoards((prev) => prev.map((b) => (b.id === id ? { ...b, name } : b)))
+    try {
+      await renameBoard(id, name)
+    } catch (e) {
+      console.error(e)
+      await refreshBoards()
+    }
+  }, [refreshBoards])
+
+  const handleDeleteBoard = useCallback(async (id) => {
+    const remaining = boards.filter((b) => b.id !== id)
+    setBoards(remaining)
+    if (id === boardId && remaining.length > 0) {
+      setBoardId(remaining[0].id)
+    }
+    try {
+      await deleteBoard(id)
+    } catch (e) {
+      console.error(e)
+      await refreshBoards()
+    }
+  }, [boards, boardId, refreshBoards])
+
+  // ── Card / connector handlers ──
   const handleCreateCard = useCallback(
     async (x, y, overrides = {}) => {
       const card = await createCard(boardId, {
@@ -194,6 +284,15 @@ export default function App() {
 
   return (
     <div className="app">
+      <BoardMenu
+        boards={boards}
+        currentId={boardId}
+        onSwitch={setBoardId}
+        onCreate={handleCreateBoard}
+        onRename={handleRenameBoard}
+        onDelete={handleDeleteBoard}
+      />
+
       {visibleDetailCard && (
         <CardDetail
           key={visibleDetailCard.id}
@@ -205,6 +304,7 @@ export default function App() {
       )}
 
       <Canvas
+        key={boardId}
         cards={cards}
         connectors={connectors}
         selectedId={selectedId}

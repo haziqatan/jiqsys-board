@@ -208,6 +208,59 @@ export const IconShapes = (p) => (
   </svg>
 )
 
+export const IconMenu = (p) => (
+  <svg {...base} {...p}>
+    <path d="M4 7h16" />
+    <path d="M4 12h16" />
+    <path d="M4 17h16" />
+  </svg>
+)
+
+export const IconEdit = (p) => (
+  <svg {...base} {...p}>
+    <path d="M4 20h4l11-11-4-4L4 16z" />
+    <path d="M14 6l4 4" />
+  </svg>
+)
+
+export const IconTriangle = (p) => (
+  <svg {...base} {...p}>
+    <path d="M12 4l9 16H3z" />
+  </svg>
+)
+
+export const IconStar = (p) => (
+  <svg {...base} {...p}>
+    <path d="M12 3l2.6 5.4 5.9.7-4.4 4.1 1.1 5.8L12 16.3 6.8 19l1.1-5.8-4.4-4.1 5.9-.7z" />
+  </svg>
+)
+
+export const IconArrowShape = (p) => (
+  <svg {...base} {...p}>
+    <path d="M3 9h11V5l7 7-7 7v-4H3z" strokeLinejoin="round" />
+  </svg>
+)
+
+export const IconRectangle = (p) => (
+  <svg {...base} {...p}>
+    <rect x="3" y="7" width="18" height="10" rx="1.5" />
+  </svg>
+)
+
+export const IconSquare = (p) => (
+  <svg {...base} {...p}>
+    <rect x="5" y="5" width="14" height="14" rx="1.5" />
+  </svg>
+)
+
+export const IconText = (p) => (
+  <svg {...base} {...p}>
+    <path d="M5 7V5h14v2" />
+    <path d="M12 5v14" />
+    <path d="M9 19h6" />
+  </svg>
+)
+
 export const IconRounded = (p) => (
   <svg {...base} {...p}>
     <path d="M4 18h4a6 6 0 0 0 6-6V8a4 4 0 0 1 4-4h2" strokeLinejoin="round" />
