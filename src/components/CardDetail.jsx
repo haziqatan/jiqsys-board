@@ -107,7 +107,7 @@ export default function CardDetail({ card, onUpdate, onDelete, onClose }) {
             >
               <span
                 className={`bar-preview style-${s.id}`}
-                style={{ background: color }}
+                style={{ backgroundColor: color }}
               />
               <span className="bar-label">{s.label}</span>
             </button>

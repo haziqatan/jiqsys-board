@@ -208,7 +208,7 @@
 .bar-preview.style-striped,
 .bar-preview.style-animated {
   background-image: repeating-linear-gradient(
-    -45deg,
+    45deg,
     transparent 0,
     transparent 6px,
     rgba(255,255,255,0.55) 6px,

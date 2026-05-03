@@ -283,7 +283,7 @@ export default function CardNode({
       <div className="card-inner">
         <div
           className={`card-color-bar style-${card.color_bar_style || 'solid'}`}
-          style={{ background: card.color }}
+          style={{ backgroundColor: card.color }}
         />
         <div className="card-body">
           {editingTitle ? (
