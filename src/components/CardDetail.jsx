@@ -59,9 +59,14 @@ export default function CardDetail({
   const [newTag, setNewTag] = useState('')
   const [newTagColor, setNewTagColor] = useState('#14b8a6')
   const [expandedSections, setExpandedSections] = useState({
-    status: false,
-    assignee: false,
-    tags: false,
+    color: true,
+    colorBar: true,
+    status: true,
+    assignee: true,
+    estimate: true,
+    startDate: true,
+    endDate: true,
+    tags: true,
   })
 
   const nextMode = () => setMode((m) => MODES[(MODES.indexOf(m) + 1) % MODES.length])
@@ -142,57 +147,70 @@ export default function CardDetail({
       </div>
 
       <div className="cd-row">
-        <label>Color</label>
-        <div className="cd-value">
-          <button
-            className="cd-color-swatch"
-            style={{ background: color }}
-            onClick={() => setShowColor((v) => !v)}
-          />
-          {showColor && (
-            <ColorPicker
-              value={color}
-              onChange={(c) => {
-                setColor(c)
-                commit({ color: c })
-                setShowColor(false)
-              }}
-            />
-          )}
-        </div>
-      </div>
-
-      <div className="cd-row">
-        <label>Color bar</label>
-        <div className="cd-bar-picker">
-          {COLOR_BAR_STYLES.map((s) => (
+        <SettingLabel
+          title="Color"
+          section="color"
+          expanded={expandedSections.color}
+          onToggle={toggleSection}
+        />
+        {expandedSections.color && (
+          <div className="cd-value">
             <button
-              key={s.id}
-              className={`cd-bar-btn${barStyle === s.id ? ' active' : ''}`}
-              onClick={() => { setBarStyle(s.id); commit({ color_bar_style: s.id }) }}
-              title={s.label}
-              type="button"
-            >
-              <span
-                className={`bar-preview style-${s.id}`}
-                style={{ backgroundColor: color }}
+              className="cd-color-swatch"
+              style={{ background: color }}
+              onClick={() => setShowColor((v) => !v)}
+            />
+            {showColor && (
+              <ColorPicker
+                value={color}
+                onChange={(c) => {
+                  setColor(c)
+                  commit({ color: c })
+                  setShowColor(false)
+                }}
               />
-              <span className="bar-label">{s.label}</span>
-            </button>
-          ))}
-        </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="cd-row">
-        <div className="cd-row-label">
-          <label>Status</label>
-          <SectionToggle
-            expanded={expandedSections.status}
-            onClick={() => toggleSection('status')}
-            label="status"
-          />
-        </div>
-        <div className="cd-status-control">
+        <SettingLabel
+          title="Color bar"
+          section="colorBar"
+          expanded={expandedSections.colorBar}
+          onToggle={toggleSection}
+        />
+        {expandedSections.colorBar && (
+          <div className="cd-bar-picker">
+            {COLOR_BAR_STYLES.map((s) => (
+              <button
+                key={s.id}
+                className={`cd-bar-btn${barStyle === s.id ? ' active' : ''}`}
+                onClick={() => { setBarStyle(s.id); commit({ color_bar_style: s.id }) }}
+                title={s.label}
+                type="button"
+              >
+                <span
+                  className={`bar-preview style-${s.id}`}
+                  style={{ backgroundColor: color }}
+                />
+                <span className="bar-label">{s.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="cd-row">
+        <SettingLabel
+          title="Status"
+          section="status"
+          expanded={expandedSections.status}
+          onToggle={toggleSection}
+        />
+        {expandedSections.status && (
+          <div className="cd-status-control">
           <div className="cd-status-picker">
             {availableStatusOptions.map((s) => (
               <button
@@ -207,47 +225,45 @@ export default function CardDetail({
               </button>
             ))}
           </div>
-          {expandedSections.status && (
-            <OptionLibrary
-              options={editableStatusOptions}
-              selected={(option) => normalizedStatus === option.value}
-              addPlaceholder="New status"
-              newValue={newStatus}
-              newColor={newStatusColor}
-              onNewValue={setNewStatus}
-              onNewColor={setNewStatusColor}
-              onAdd={createAndSelectStatus}
-              onSelect={(option) => { setStatus(option.value); commit({ status: option.value }) }}
-              onUpdate={(option, patch) => {
-                const nextStatus = onUpdateStatus(option.id, patch)
-                if (normalizedStatus === option.value && nextStatus) {
-                  setStatus(nextStatus)
-                  commit({ status: nextStatus })
-                }
-                return nextStatus
-              }}
-              onDelete={(option) => {
-                if (normalizedStatus === option.value) {
-                  setStatus(null)
-                  commit({ status: null })
-                }
-                onDeleteStatus(option.id)
-              }}
-            />
-          )}
+          <OptionLibrary
+            options={editableStatusOptions}
+            selected={(option) => normalizedStatus === option.value}
+            addPlaceholder="New status"
+            newValue={newStatus}
+            newColor={newStatusColor}
+            onNewValue={setNewStatus}
+            onNewColor={setNewStatusColor}
+            onAdd={createAndSelectStatus}
+            onSelect={(option) => { setStatus(option.value); commit({ status: option.value }) }}
+            onUpdate={(option, patch) => {
+              const nextStatus = onUpdateStatus(option.id, patch)
+              if (normalizedStatus === option.value && nextStatus) {
+                setStatus(nextStatus)
+                commit({ status: nextStatus })
+              }
+              return nextStatus
+            }}
+            onDelete={(option) => {
+              if (normalizedStatus === option.value) {
+                setStatus(null)
+                commit({ status: null })
+              }
+              onDeleteStatus(option.id)
+            }}
+          />
         </div>
+        )}
       </div>
 
       <div className="cd-row">
-        <div className="cd-row-label">
-          <label>Assignee</label>
-          <SectionToggle
-            expanded={expandedSections.assignee}
-            onClick={() => toggleSection('assignee')}
-            label="assignee"
-          />
-        </div>
-        <div className="cd-status-control">
+        <SettingLabel
+          title="Assignee"
+          section="assignee"
+          expanded={expandedSections.assignee}
+          onToggle={toggleSection}
+        />
+        {expandedSections.assignee && (
+          <div className="cd-status-control">
           <div className="cd-status-picker">
             <button
               type="button"
@@ -271,85 +287,104 @@ export default function CardDetail({
               </button>
             ))}
           </div>
-          {expandedSections.assignee && (
-            <OptionLibrary
-              options={assigneeOptions}
-              selected={(option) => assignee === option.value}
-              addPlaceholder="New assignee"
-              newValue={newAssignee}
-              newColor={newAssigneeColor}
-              onNewValue={setNewAssignee}
-              onNewColor={setNewAssigneeColor}
-              onAdd={createAndSelectAssignee}
-              onSelect={(option) => { setAssignee(option.value); commit({ assignee: option.value }) }}
-              onUpdate={(option, patch) => {
-                const nextAssignee = onUpdateAssignee(option.id, patch)
-                if (assignee === option.value && nextAssignee) {
-                  setAssignee(nextAssignee)
-                  commit({ assignee: nextAssignee })
-                }
-                return nextAssignee
-              }}
-              onDelete={(option) => {
-                if (assignee === option.value) {
-                  setAssignee('')
-                  commit({ assignee: null })
-                }
-                onDeleteAssignee(option.id)
-              }}
-            />
-          )}
-        </div>
-      </div>
-
-      <div className="cd-row">
-        <label>Estimate</label>
-        <input
-          className="cd-input"
-          type="number"
-          placeholder="—"
-          value={estimate}
-          onChange={(e) => setEstimate(e.target.value)}
-          onBlur={() => commit({ estimate: estimate === '' ? null : Number(estimate) })}
-        />
-      </div>
-
-      <div className="cd-row">
-        <label>Start Date</label>
-        <input
-          className="cd-input"
-          type="date"
-          value={startDate || ''}
-          onChange={(e) => {
-            setStartDate(e.target.value)
-            commit({ start_date: e.target.value || null })
-          }}
-        />
-      </div>
-
-      <div className="cd-row">
-        <label>End Date</label>
-        <input
-          className="cd-input"
-          type="date"
-          value={endDate || ''}
-          onChange={(e) => {
-            setEndDate(e.target.value)
-            commit({ end_date: e.target.value || null })
-          }}
-        />
-      </div>
-
-      <div className="cd-row">
-        <div className="cd-row-label">
-          <label>Tags</label>
-          <SectionToggle
-            expanded={expandedSections.tags}
-            onClick={() => toggleSection('tags')}
-            label="tags"
+          <OptionLibrary
+            options={assigneeOptions}
+            selected={(option) => assignee === option.value}
+            addPlaceholder="New assignee"
+            newValue={newAssignee}
+            newColor={newAssigneeColor}
+            onNewValue={setNewAssignee}
+            onNewColor={setNewAssigneeColor}
+            onAdd={createAndSelectAssignee}
+            onSelect={(option) => { setAssignee(option.value); commit({ assignee: option.value }) }}
+            onUpdate={(option, patch) => {
+              const nextAssignee = onUpdateAssignee(option.id, patch)
+              if (assignee === option.value && nextAssignee) {
+                setAssignee(nextAssignee)
+                commit({ assignee: nextAssignee })
+              }
+              return nextAssignee
+            }}
+            onDelete={(option) => {
+              if (assignee === option.value) {
+                setAssignee('')
+                commit({ assignee: null })
+              }
+              onDeleteAssignee(option.id)
+            }}
           />
         </div>
-        <div className="cd-status-control">
+        )}
+      </div>
+
+      <div className="cd-row">
+        <SettingLabel
+          title="Estimate"
+          section="estimate"
+          expanded={expandedSections.estimate}
+          onToggle={toggleSection}
+        />
+        {expandedSections.estimate && (
+          <input
+            className="cd-input"
+            type="number"
+            placeholder="—"
+            value={estimate}
+            onChange={(e) => setEstimate(e.target.value)}
+            onBlur={() => commit({ estimate: estimate === '' ? null : Number(estimate) })}
+          />
+        )}
+      </div>
+
+      <div className="cd-row">
+        <SettingLabel
+          title="Start Date"
+          section="startDate"
+          expanded={expandedSections.startDate}
+          onToggle={toggleSection}
+        />
+        {expandedSections.startDate && (
+          <input
+            className="cd-input"
+            type="date"
+            value={startDate || ''}
+            onChange={(e) => {
+              setStartDate(e.target.value)
+              commit({ start_date: e.target.value || null })
+            }}
+          />
+        )}
+      </div>
+
+      <div className="cd-row">
+        <SettingLabel
+          title="End Date"
+          section="endDate"
+          expanded={expandedSections.endDate}
+          onToggle={toggleSection}
+        />
+        {expandedSections.endDate && (
+          <input
+            className="cd-input"
+            type="date"
+            value={endDate || ''}
+            onChange={(e) => {
+              setEndDate(e.target.value)
+              commit({ end_date: e.target.value || null })
+            }}
+          />
+        )}
+      </div>
+
+      <div className="cd-row">
+        <SettingLabel
+          title="Tags"
+          section="tags"
+          expanded={expandedSections.tags}
+          onToggle={toggleSection}
+        />
+        {expandedSections.tags && (
+          <div className="cd-status-control">
           <div className="cd-status-picker">
             {tagOptions.map((option) => {
               const active = selectedTags.includes(option.value)
@@ -367,39 +402,38 @@ export default function CardDetail({
               )
             })}
           </div>
-          {expandedSections.tags && (
-            <OptionLibrary
-              options={tagOptions}
-              selected={(option) => selectedTags.includes(option.value)}
-              addPlaceholder="New tag"
-              newValue={newTag}
-              newColor={newTagColor}
-              onNewValue={setNewTag}
-              onNewColor={setNewTagColor}
-              onAdd={createAndToggleTag}
-              onSelect={(option) => toggleTag(option.value)}
-              onUpdate={(option, patch) => {
-                const nextTag = onUpdateTag(option.id, patch)
-                if (selectedTags.includes(option.value) && nextTag) {
-                  const nextTags = [...new Set(selectedTags.map((tag) => (
-                    tag === option.value ? nextTag : tag
-                  )))]
-                  setTags(nextTags)
-                  commit({ tags: nextTags })
-                }
-                return nextTag
-              }}
-              onDelete={(option) => {
-                if (selectedTags.includes(option.value)) {
-                  const nextTags = selectedTags.filter((tag) => tag !== option.value)
-                  setTags(nextTags)
-                  commit({ tags: nextTags })
-                }
-                onDeleteTag(option.id)
-              }}
-            />
-          )}
+          <OptionLibrary
+            options={tagOptions}
+            selected={(option) => selectedTags.includes(option.value)}
+            addPlaceholder="New tag"
+            newValue={newTag}
+            newColor={newTagColor}
+            onNewValue={setNewTag}
+            onNewColor={setNewTagColor}
+            onAdd={createAndToggleTag}
+            onSelect={(option) => toggleTag(option.value)}
+            onUpdate={(option, patch) => {
+              const nextTag = onUpdateTag(option.id, patch)
+              if (selectedTags.includes(option.value) && nextTag) {
+                const nextTags = [...new Set(selectedTags.map((tag) => (
+                  tag === option.value ? nextTag : tag
+                )))]
+                setTags(nextTags)
+                commit({ tags: nextTags })
+              }
+              return nextTag
+            }}
+            onDelete={(option) => {
+              if (selectedTags.includes(option.value)) {
+                const nextTags = selectedTags.filter((tag) => tag !== option.value)
+                setTags(nextTags)
+                commit({ tags: nextTags })
+              }
+              onDeleteTag(option.id)
+            }}
+          />
         </div>
+        )}
       </div>
 
       <div className="cd-divider" />
@@ -412,6 +446,19 @@ export default function CardDetail({
       </div>
     </aside>
     </>
+  )
+}
+
+function SettingLabel({ title, section, expanded, onToggle }) {
+  return (
+    <div className="cd-row-label">
+      <label>{title}</label>
+      <SectionToggle
+        expanded={expanded}
+        onClick={() => onToggle(section)}
+        label={title.toLowerCase()}
+      />
+    </div>
   )
 }
 
