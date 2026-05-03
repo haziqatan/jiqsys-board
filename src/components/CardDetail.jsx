@@ -5,7 +5,18 @@ import TagManager from './TagManager'
 import { IconClose, IconTrash, IconPanelLeft, IconModal, IconExpandFull } from './Icons'
 import '../styles/CardDetail.css'
 
-const STATUS_OPTIONS = ['Not set', 'To Do', 'In Progress', 'Blocked', 'Done']
+const STATUS_OPTIONS = [
+  { value: null,           label: 'Not set',     color: '#cbd0db' },
+  { value: 'To Do',        label: 'To Do',       color: '#94a3b8' },
+  { value: 'In Progress',  label: 'In Progress', color: '#3b82f6' },
+  { value: 'Blocked',      label: 'Blocked',     color: '#ef4444' },
+  { value: 'Done',         label: 'Done',        color: '#22c55e' },
+]
+const COLOR_BAR_STYLES = [
+  { id: 'solid',    label: 'Solid' },
+  { id: 'striped',  label: 'Striped' },
+  { id: 'animated', label: 'Animated' },
+]
 const MODES = ['side', 'modal', 'fullscreen']
 const MODE_ICONS = { side: IconPanelLeft, modal: IconModal, fullscreen: IconExpandFull }
 const MODE_TITLES = { side: 'Side panel', modal: 'Centered modal', fullscreen: 'Full screen' }
@@ -14,7 +25,8 @@ export default function CardDetail({ card, onUpdate, onDelete, onClose }) {
   const [mode, setMode] = useState('side')
   const [title, setTitle] = useState(card.title)
   const [color, setColor] = useState(card.color)
-  const [status, setStatus] = useState(card.status || 'Not set')
+  const [barStyle, setBarStyle] = useState(card.color_bar_style || 'solid')
+  const [status, setStatus] = useState(card.status || null)
   const [assignee, setAssignee] = useState(card.assignee || '')
   const [estimate, setEstimate] = useState(card.estimate ?? '')
   const [startDate, setStartDate] = useState(card.start_date || '')
@@ -83,20 +95,42 @@ export default function CardDetail({ card, onUpdate, onDelete, onClose }) {
       </div>
 
       <div className="cd-row">
-        <label>Status</label>
-        <select
-          className="cd-input"
-          value={status}
-          onChange={(e) => {
-            const v = e.target.value
-            setStatus(v)
-            commit({ status: v === 'Not set' ? null : v })
-          }}
-        >
-          {STATUS_OPTIONS.map((s) => (
-            <option key={s} value={s}>{s}</option>
+        <label>Color bar</label>
+        <div className="cd-bar-picker">
+          {COLOR_BAR_STYLES.map((s) => (
+            <button
+              key={s.id}
+              className={`cd-bar-btn${barStyle === s.id ? ' active' : ''}`}
+              onClick={() => { setBarStyle(s.id); commit({ color_bar_style: s.id }) }}
+              title={s.label}
+              type="button"
+            >
+              <span
+                className={`bar-preview style-${s.id}`}
+                style={{ background: color }}
+              />
+              <span className="bar-label">{s.label}</span>
+            </button>
           ))}
-        </select>
+        </div>
+      </div>
+
+      <div className="cd-row">
+        <label>Status</label>
+        <div className="cd-status-picker">
+          {STATUS_OPTIONS.map((s) => (
+            <button
+              key={s.label}
+              type="button"
+              className={`cd-status-pill${status === s.value ? ' active' : ''}`}
+              onClick={() => { setStatus(s.value); commit({ status: s.value }) }}
+              style={status === s.value ? { '--pill-c': s.color } : undefined}
+            >
+              <span className="cd-status-dot" style={{ background: s.color }} />
+              {s.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="cd-row">

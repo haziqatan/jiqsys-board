@@ -281,7 +281,10 @@ export default function CardNode({
     >
       {/* .card-inner clips the color-bar's corners to match border-radius */}
       <div className="card-inner">
-        <div className="card-color-bar" style={{ background: card.color }} />
+        <div
+          className={`card-color-bar style-${card.color_bar_style || 'solid'}`}
+          style={{ background: card.color }}
+        />
         <div className="card-body">
           {editingTitle ? (
             <input

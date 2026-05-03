@@ -40,8 +40,35 @@
   height: 4px;
   width: 100%;
   transition: height 160ms var(--ease);
+  background-color: var(--accent);
 }
 .card-node.selected .card-color-bar { height: 5px; }
+
+/* Striped: diagonal stripes overlaid on base color */
+.card-color-bar.style-striped,
+.card-color-bar.style-animated {
+  height: 8px;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent 0,
+    transparent 6px,
+    rgba(255, 255, 255, 0.55) 6px,
+    rgba(255, 255, 255, 0.55) 12px
+  );
+}
+.card-node.selected .card-color-bar.style-striped,
+.card-node.selected .card-color-bar.style-animated { height: 9px; }
+
+/* Animated: same stripes, sliding */
+.card-color-bar.style-animated {
+  background-size: 17px 100%;
+  animation: stripe-slide 1.2s linear infinite;
+}
+
+@keyframes stripe-slide {
+  from { background-position: 0 0; }
+  to   { background-position: 17px 0; }
+}
 
 .card-body {
   padding: 12px 14px 14px;

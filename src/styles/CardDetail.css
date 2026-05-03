@@ -174,6 +174,97 @@
   flex-direction: column;
 }
 
+/* ── Color bar style picker ── */
+.cd-bar-picker {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.cd-bar-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  padding: 6px 7px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  transition: border-color 140ms var(--ease), background 140ms var(--ease);
+  cursor: pointer;
+  flex: 1;
+  min-width: 60px;
+}
+.cd-bar-btn:hover { border-color: var(--border-strong); }
+.cd-bar-btn.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.bar-preview {
+  width: 100%;
+  height: 8px;
+  border-radius: 2px;
+  background-color: var(--accent);
+}
+.bar-preview.style-striped,
+.bar-preview.style-animated {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent 0,
+    transparent 6px,
+    rgba(255,255,255,0.55) 6px,
+    rgba(255,255,255,0.55) 12px
+  );
+}
+.bar-preview.style-animated {
+  background-size: 17px 100%;
+  animation: stripe-slide 1.2s linear infinite;
+}
+.bar-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-align: center;
+}
+.cd-bar-btn.active .bar-label { color: var(--accent-strong); }
+
+/* ── Status pill picker ── */
+.cd-status-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.cd-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border: 1px solid transparent;
+  transition: background 120ms var(--ease), color 120ms var(--ease), border-color 120ms var(--ease);
+  cursor: pointer;
+}
+.cd-status-pill:hover {
+  background: var(--surface);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+.cd-status-pill.active {
+  background: color-mix(in srgb, var(--pill-c) 15%, var(--surface));
+  border-color: var(--pill-c);
+  color: var(--text);
+  font-weight: 600;
+}
+.cd-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
 select.cd-input {
   appearance: none;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23525a6b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
