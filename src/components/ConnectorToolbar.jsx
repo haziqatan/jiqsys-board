@@ -5,6 +5,7 @@ import {
   IconArrowNone,
   IconStraight,
   IconOrthogonal,
+  IconRounded,
   IconCurved,
   IconJump,
   IconTrash,
@@ -12,9 +13,10 @@ import {
 import '../styles/ConnectorToolbar.css'
 
 const SHAPES = [
-  { id: 'straight', label: 'Straight', Icon: IconStraight },
-  { id: 'orthogonal', label: 'Orthogonal', Icon: IconOrthogonal },
-  { id: 'curved', label: 'Curved', Icon: IconCurved },
+  { id: 'straight',    label: 'Straight',    Icon: IconStraight },
+  { id: 'orthogonal',  label: 'Orthogonal',  Icon: IconOrthogonal },
+  { id: 'rounded',     label: 'Rounded',     Icon: IconRounded },
+  { id: 'curved',      label: 'Curved',      Icon: IconCurved },
 ]
 
 const STYLES = [

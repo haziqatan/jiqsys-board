@@ -15,6 +15,12 @@
   animation: toolbar-in 260ms var(--ease);
 }
 
+.toolbar-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 2px;
+}
+
 @keyframes toolbar-in {
   from { opacity: 0; transform: translate(-12px, -50%); }
   to { opacity: 1; transform: translate(0, -50%); }

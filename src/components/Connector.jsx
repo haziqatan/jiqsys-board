@@ -37,6 +37,7 @@ function isHorizontal(side) {
 // Used for both rendering and line-jump intersection tests.
 function getPathSegments(s, t, shape) {
   if (shape === 'straight') return [[s, t]]
+  if (shape === 'rounded') return getPathSegments(s, t, 'orthogonal')
   if (shape === 'orthogonal') {
     const sH = isHorizontal(s.side)
     const tH = isHorizontal(t.side)
@@ -68,6 +69,35 @@ function getPathSegments(s, t, shape) {
     ]
   }
   return []
+}
+
+function roundedPath(s, t) {
+  const segs = getPathSegments(s, t, 'orthogonal')
+  if (!segs.length) return `M ${s.x} ${s.y} L ${t.x} ${t.y}`
+  const R = 14
+  const pts = [segs[0][0], ...segs.map(([, b]) => b)]
+  let d = `M ${pts[0].x} ${pts[0].y}`
+  for (let i = 1; i < pts.length; i++) {
+    const prev = pts[i - 1]
+    const curr = pts[i]
+    if (i === pts.length - 1) {
+      d += ` L ${curr.x} ${curr.y}`
+    } else {
+      const next = pts[i + 1]
+      const dx1 = curr.x - prev.x, dy1 = curr.y - prev.y
+      const dx2 = next.x - curr.x, dy2 = next.y - curr.y
+      const len1 = Math.hypot(dx1, dy1), len2 = Math.hypot(dx2, dy2)
+      if (len1 < 1 || len2 < 1) { d += ` L ${curr.x} ${curr.y}`; continue }
+      const r = Math.min(R, len1 * 0.45, len2 * 0.45)
+      const ux1 = dx1 / len1, uy1 = dy1 / len1
+      const ux2 = dx2 / len2, uy2 = dy2 / len2
+      const bx = curr.x - ux1 * r, by = curr.y - uy1 * r
+      const ax = curr.x + ux2 * r, ay = curr.y + uy2 * r
+      const sweep = (ux1 * uy2 - uy1 * ux2) > 0 ? 1 : 0
+      d += ` L ${bx} ${by} A ${r} ${r} 0 0 ${sweep} ${ax} ${ay}`
+    }
+  }
+  return d
 }
 
 function curvedPath(s, t) {
@@ -189,6 +219,8 @@ export default function Connector({
   let d
   if (shape === 'curved') {
     d = curvedPath(S, T)
+  } else if (shape === 'rounded' && !ghost) {
+    d = roundedPath(S, T)
   } else {
     const segments = getPathSegments(S, T, ghost ? 'straight' : shape)
     d = !ghost && lineJumps

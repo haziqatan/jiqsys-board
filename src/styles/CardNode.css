@@ -94,52 +94,101 @@
   display: inline-block;
 }
 
+/* ── Link handles ── */
 .link-handle {
   position: absolute;
-  width: 11px;
-  height: 11px;
-  background: var(--surface);
-  border: 2px solid var(--accent);
-  border-radius: 999px;
   z-index: 10;
   cursor: crosshair;
   opacity: 0;
-  scale: 0.6;
-  transition: opacity 160ms var(--ease), scale 160ms var(--ease), background 120ms var(--ease), border-width 120ms var(--ease);
+  transition: opacity 160ms var(--ease);
+  pointer-events: all;
 }
+
+/* Hit-zone sizing per axis */
+.link-handle.top,
+.link-handle.bottom {
+  width: 32px;
+  height: 24px;
+  left: calc(50% - 16px);
+}
+.link-handle.left,
+.link-handle.right {
+  width: 24px;
+  height: 32px;
+  top: calc(50% - 16px);
+}
+
+.link-handle.top    { top: -22px; }
+.link-handle.bottom { bottom: -22px; }
+.link-handle.left   { left: -22px; }
+.link-handle.right  { right: -22px; }
+
 .card-node:hover .link-handle,
 .card-node.selected .link-handle {
   opacity: 1;
-  scale: 1;
 }
-.link-handle:hover {
-  background: var(--accent);
-  scale: 1.25 !important;
-}
-.link-handle.top { top: -6px; left: calc(50% - 5.5px); }
-.link-handle.bottom { bottom: -6px; left: calc(50% - 5.5px); }
-.link-handle.left { left: -6px; top: calc(50% - 5.5px); }
-.link-handle.right { right: -6px; top: calc(50% - 5.5px); }
 
-.resize-handle {
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  width: 14px;
-  height: 14px;
-  cursor: nwse-resize;
-  opacity: 0;
-  transition: opacity 160ms var(--ease);
-}
-.resize-handle::before {
+/* Circle dot */
+.link-handle::after {
   content: '';
   position: absolute;
-  bottom: 3px;
-  right: 3px;
-  width: 8px;
-  height: 8px;
-  border-right: 2px solid var(--text-soft);
-  border-bottom: 2px solid var(--text-soft);
-  border-bottom-right-radius: 2px;
+  width: 12px;
+  height: 12px;
+  background: var(--accent);
+  border: 2.5px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1.5px var(--accent), 0 2px 6px rgba(59,130,246,.35);
+  transition: transform 140ms var(--ease), box-shadow 140ms var(--ease);
+}
+
+/* Directional stub (::before) */
+.link-handle::before {
+  content: '';
+  position: absolute;
+  background: var(--accent);
+  border-radius: 2px;
+  opacity: 0.7;
+}
+
+/* Top: dot at top-center, stub below it toward card */
+.link-handle.top::after  { top: 2px;  left: calc(50% - 6px); }
+.link-handle.top::before { width: 2px; height: 7px; top: 13px; left: calc(50% - 1px); }
+
+/* Bottom: dot at bottom-center, stub above it */
+.link-handle.bottom::after  { bottom: 2px; left: calc(50% - 6px); }
+.link-handle.bottom::before { width: 2px; height: 7px; bottom: 13px; left: calc(50% - 1px); }
+
+/* Left: dot at left-center, stub to the right */
+.link-handle.left::after  { left: 2px;  top: calc(50% - 6px); }
+.link-handle.left::before { width: 7px; height: 2px; left: 13px; top: calc(50% - 1px); }
+
+/* Right: dot at right-center, stub to the left */
+.link-handle.right::after  { right: 2px; top: calc(50% - 6px); }
+.link-handle.right::before { width: 7px; height: 2px; right: 13px; top: calc(50% - 1px); }
+
+.link-handle:hover::after {
+  transform: scale(1.25);
+  box-shadow: 0 0 0 2px var(--accent), 0 3px 8px rgba(59,130,246,.5);
+}
+
+/* ── Resize handle ── */
+.resize-handle {
+  position: absolute;
+  bottom: -7px;
+  right: -7px;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+  opacity: 0;
+  background: var(--surface);
+  border: 1.5px solid var(--accent);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 4px rgba(59,130,246,.25);
+  transition: opacity 160ms var(--ease), transform 140ms var(--ease);
+  z-index: 10;
 }
 .card-node.selected .resize-handle { opacity: 1; }
+.resize-handle:hover { transform: scale(1.15); }

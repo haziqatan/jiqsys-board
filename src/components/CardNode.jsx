@@ -82,15 +82,34 @@ export default function CardNode({
 
   const statusDot = card.status ? STATUS_COLORS[card.status] || '#94a3b8' : null
   const showHandles = selected || hovered
+  const nodeShape = card.node_shape || 'rect'
+
+  const shapeStyle = {}
+  if (nodeShape === 'circle') {
+    shapeStyle.borderRadius = '50%'
+  } else if (nodeShape === 'diamond') {
+    shapeStyle.clipPath = 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)'
+    shapeStyle.borderRadius = 0
+    shapeStyle.overflow = 'visible'
+  } else if (nodeShape === 'hexagon') {
+    shapeStyle.clipPath = 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)'
+    shapeStyle.borderRadius = 0
+    shapeStyle.overflow = 'visible'
+  } else if (nodeShape === 'parallelogram') {
+    shapeStyle.clipPath = 'polygon(12% 0%, 100% 0%, 88% 100%, 0% 100%)'
+    shapeStyle.borderRadius = 0
+    shapeStyle.overflow = 'visible'
+  }
 
   return (
     <div
-      className={`card-node ${selected ? 'selected' : ''}`}
+      className={`card-node shape-${nodeShape} ${selected ? 'selected' : ''}`}
       style={{
         left: card.x,
         top: card.y,
         width: card.width,
         height: card.height,
+        ...shapeStyle,
       }}
       onMouseDown={(e) => {
         if (editingTitle) return
@@ -160,7 +179,14 @@ export default function CardNode({
         </>
       )}
 
-      {selected && <div className="resize-handle" onMouseDown={startResize} />}
+      {selected && (
+        <div className="resize-handle" onMouseDown={startResize}>
+          <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+            <path d="M1 7L7 1" stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round"/>
+            <path d="M4.5 7L7 4.5" stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+        </div>
+      )}
     </div>
   )
 }

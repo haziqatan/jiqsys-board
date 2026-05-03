@@ -51,6 +51,9 @@ export default function Canvas({
         map[conn.id] = []
         continue
       }
+      if (shape === 'rounded') {
+        // use orthogonal segments for line-jump intersection tests
+      }
       const sAnchor = pickAnchor(src, rectCenter(tgt), conn.source_side)
       const tAnchor = pickAnchor(tgt, rectCenter(src), conn.target_side)
       const S = { ...sAnchor, x: sAnchor.x + WORLD_OFFSET, y: sAnchor.y + WORLD_OFFSET }
@@ -108,9 +111,17 @@ export default function Canvas({
       return
     }
 
-    if (e.button === 0 && isEmpty && tool === 'card') {
+    if (e.button === 0 && isEmpty && tool.startsWith('card')) {
       const { x, y } = screenToWorld(e.clientX, e.clientY)
-      onCreateCard(x - 120, y - 50)
+      const shapeMap = {
+        'card':         { node_shape: 'rect',          w: 240, h: 100 },
+        'card-circle':  { node_shape: 'circle',        w: 140, h: 140 },
+        'card-diamond': { node_shape: 'diamond',       w: 160, h: 160 },
+        'card-hex':     { node_shape: 'hexagon',       w: 180, h: 160 },
+        'card-para':    { node_shape: 'parallelogram', w: 240, h: 100 },
+      }
+      const { node_shape, w, h } = shapeMap[tool] || shapeMap['card']
+      onCreateCard(x - w / 2, y - h / 2, { node_shape, width: w, height: h })
       setTool('select')
     }
   }
@@ -192,6 +203,7 @@ export default function Canvas({
       if (!isTyping(e.target) && !e.metaKey && !e.ctrlKey && !e.altKey) {
         if (e.key === 'v' || e.key === 'V') setTool('select')
         if (e.key === 'c' || e.key === 'C') setTool('card')
+        if (e.key === 'Escape' && tool !== 'select') setTool('select')
       }
     }
     window.addEventListener('keydown', onKey)
@@ -234,7 +246,7 @@ export default function Canvas({
 
   const cursorClass = panning
     ? 'cursor-grabbing'
-    : tool === 'card'
+    : tool.startsWith('card')
     ? 'cursor-add'
     : 'cursor-grab'
 

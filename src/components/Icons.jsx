@@ -198,3 +198,60 @@ export const IconLink = (p) => (
     <path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />
   </svg>
 )
+
+export const IconRounded = (p) => (
+  <svg {...base} {...p}>
+    <path d="M4 18h4a6 6 0 0 0 6-6V8a4 4 0 0 1 4-4h2" strokeLinejoin="round" />
+  </svg>
+)
+
+export const IconPanelLeft = (p) => (
+  <svg {...base} {...p}>
+    <rect x="3" y="3" width="18" height="18" rx="2" />
+    <path d="M9 3v18" />
+  </svg>
+)
+
+export const IconModal = (p) => (
+  <svg {...base} {...p}>
+    <rect x="4" y="5" width="16" height="14" rx="2" />
+    <path d="M4 9h16" />
+  </svg>
+)
+
+export const IconExpandFull = (p) => (
+  <svg {...base} {...p}>
+    <path d="M3 8V3h5" />
+    <path d="M3 3l5 5" />
+    <path d="M21 8V3h-5" />
+    <path d="M21 3l-5 5" />
+    <path d="M3 16v5h5" />
+    <path d="M3 21l5-5" />
+    <path d="M21 16v5h-5" />
+    <path d="M21 21l-5-5" />
+  </svg>
+)
+
+export const IconCircle = (p) => (
+  <svg {...base} {...p}>
+    <circle cx="12" cy="12" r="8" />
+  </svg>
+)
+
+export const IconDiamond = (p) => (
+  <svg {...base} {...p}>
+    <path d="M12 3l9 9-9 9-9-9z" />
+  </svg>
+)
+
+export const IconHexagon = (p) => (
+  <svg {...base} {...p}>
+    <path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z" />
+  </svg>
+)
+
+export const IconParallelogram = (p) => (
+  <svg {...base} {...p}>
+    <path d="M6 18h10l4-12H10z" />
+  </svg>
+)

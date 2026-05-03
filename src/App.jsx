@@ -97,7 +97,7 @@ export default function App() {
   }, [boardId])
 
   const handleCreateCard = useCallback(
-    async (x, y) => {
+    async (x, y, overrides = {}) => {
       const card = await createCard(boardId, {
         title: 'New card',
         color: '#3b82f6',
@@ -105,6 +105,7 @@ export default function App() {
         y,
         width: 240,
         height: 100,
+        ...overrides,
       })
       setCards((prev) => [...prev.filter((c) => c.id !== card.id), card])
       setSelectedId(card.id)
