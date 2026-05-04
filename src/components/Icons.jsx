@@ -4,19 +4,24 @@ const base = {
   viewBox: '0 0 24 24',
   fill: 'none',
   stroke: 'currentColor',
-  strokeWidth: 1.8,
+  strokeWidth: 1.7,
   strokeLinecap: 'round',
   strokeLinejoin: 'round',
 }
 
+// Duotone fill: a soft body using currentColor at 18% opacity.
+const duo = { fill: 'currentColor', fillOpacity: 0.18, stroke: 'none' }
+
 export const IconCursor = (p) => (
   <svg {...base} {...p}>
+    <path d="M5 3l6 16 2-7 7-2z" {...duo} />
     <path d="M5 3l6 16 2-7 7-2z" />
   </svg>
 )
 
 export const IconCard = (p) => (
   <svg {...base} {...p}>
+    <rect x="4" y="6" width="16" height="12" rx="2.5" {...duo} />
     <rect x="4" y="6" width="16" height="12" rx="2.5" />
     <path d="M4 10h16" />
   </svg>
@@ -76,6 +81,7 @@ export const IconJump = (p) => (
 
 export const IconTrash = (p) => (
   <svg {...base} {...p}>
+    <path d="M6 7l1 13h10l1-13" {...duo} />
     <path d="M4 7h16" />
     <path d="M9 7V4h6v3" />
     <path d="M6 7l1 13h10l1-13" />
@@ -106,6 +112,7 @@ export const IconMinus = (p) => (
 
 export const IconHome = (p) => (
   <svg {...base} {...p}>
+    <path d="M6 10v9h12v-9l-6-6z" {...duo} />
     <path d="M4 11l8-7 8 7" />
     <path d="M6 10v9h12v-9" />
   </svg>
@@ -113,6 +120,7 @@ export const IconHome = (p) => (
 
 export const IconCalendar = (p) => (
   <svg {...base} {...p}>
+    <rect x="4" y="5" width="16" height="15" rx="2" {...duo} />
     <rect x="4" y="5" width="16" height="15" rx="2" />
     <path d="M4 10h16" />
     <path d="M9 3v4" />
@@ -186,6 +194,7 @@ export const IconCheck = (p) => (
 
 export const IconImage = (p) => (
   <svg {...base} {...p}>
+    <rect x="4" y="5" width="16" height="14" rx="2" {...duo} />
     <rect x="4" y="5" width="16" height="14" rx="2" />
     <circle cx="9" cy="10" r="1.5" />
     <path d="M5 17l5-5 4 4 2-2 4 4" />
@@ -201,10 +210,12 @@ export const IconLink = (p) => (
 
 export const IconShapes = (p) => (
   <svg {...base} {...p}>
-    <circle cx="7.5" cy="7.5" r="4" />
-    <rect x="13" y="4" width="7" height="7" rx="1.5" />
-    <path d="M4 14l4 6H0z" />
-    <path d="M13.5 14l3.5 6H10z" />
+    <circle cx="7.5" cy="8" r="4" {...duo} />
+    <rect x="13" y="4" width="8" height="8" rx="1.5" {...duo} />
+    <path d="M11.5 21l4.5-7 4.5 7z" {...duo} />
+    <circle cx="7.5" cy="8" r="4" />
+    <rect x="13" y="4" width="8" height="8" rx="1.5" />
+    <path d="M11.5 21l4.5-7 4.5 7z" />
   </svg>
 )
 
@@ -225,30 +236,35 @@ export const IconEdit = (p) => (
 
 export const IconTriangle = (p) => (
   <svg {...base} {...p}>
+    <path d="M12 4l9 16H3z" {...duo} />
     <path d="M12 4l9 16H3z" />
   </svg>
 )
 
 export const IconStar = (p) => (
   <svg {...base} {...p}>
+    <path d="M12 3l2.6 5.4 5.9.7-4.4 4.1 1.1 5.8L12 16.3 6.8 19l1.1-5.8-4.4-4.1 5.9-.7z" {...duo} />
     <path d="M12 3l2.6 5.4 5.9.7-4.4 4.1 1.1 5.8L12 16.3 6.8 19l1.1-5.8-4.4-4.1 5.9-.7z" />
   </svg>
 )
 
 export const IconArrowShape = (p) => (
   <svg {...base} {...p}>
+    <path d="M3 9h11V5l7 7-7 7v-4H3z" {...duo} />
     <path d="M3 9h11V5l7 7-7 7v-4H3z" strokeLinejoin="round" />
   </svg>
 )
 
 export const IconRectangle = (p) => (
   <svg {...base} {...p}>
+    <rect x="3" y="7" width="18" height="10" rx="1.5" {...duo} />
     <rect x="3" y="7" width="18" height="10" rx="1.5" />
   </svg>
 )
 
 export const IconSquare = (p) => (
   <svg {...base} {...p}>
+    <rect x="5" y="5" width="14" height="14" rx="1.5" {...duo} />
     <rect x="5" y="5" width="14" height="14" rx="1.5" />
   </svg>
 )
@@ -309,24 +325,28 @@ export const IconCollapse = (p) => (
 
 export const IconCircle = (p) => (
   <svg {...base} {...p}>
+    <circle cx="12" cy="12" r="8" {...duo} />
     <circle cx="12" cy="12" r="8" />
   </svg>
 )
 
 export const IconDiamond = (p) => (
   <svg {...base} {...p}>
+    <path d="M12 3l9 9-9 9-9-9z" {...duo} />
     <path d="M12 3l9 9-9 9-9-9z" />
   </svg>
 )
 
 export const IconHexagon = (p) => (
   <svg {...base} {...p}>
+    <path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z" {...duo} />
     <path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z" />
   </svg>
 )
 
 export const IconParallelogram = (p) => (
   <svg {...base} {...p}>
+    <path d="M6 18h10l4-12H10z" {...duo} />
     <path d="M6 18h10l4-12H10z" />
   </svg>
 )

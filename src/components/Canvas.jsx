@@ -8,8 +8,18 @@ import '../styles/Canvas.css'
 const MIN_ZOOM = 0.2
 const MAX_ZOOM = 3
 const WORLD_OFFSET = 10000
-const SNAP_THRESHOLD_PX = 8
+const SNAP_THRESHOLD_PX = 6
+// Only consider cards whose bounding box edge-distance is within this multiple of
+// the moving card's larger side. Anything farther is "not the nearest object".
+const NEARBY_FACTOR = 4
 const isDetailCard = (card) => (card?.node_shape || 'rect') === 'rect'
+
+// Edge-to-edge distance between two AABBs (0 if overlapping).
+function rectDistance(a, b) {
+  const dx = Math.max(0, Math.max(a.left - b.right, b.left - a.right))
+  const dy = Math.max(0, Math.max(a.top - b.bottom, b.top - a.bottom))
+  return Math.hypot(dx, dy)
+}
 
 const boundsOf = (card, x = card.x, y = card.y) => ({
   id: card.id,
@@ -29,37 +39,50 @@ const rangesOverlap = (a1, a2, b1, b2) => Math.max(a1, b1) <= Math.min(a2, b2)
 
 function getSnapResult({ cards, movingCard, draftX, draftY, zoom }) {
   const threshold = SNAP_THRESHOLD_PX / zoom
-  const others = cards.filter((card) => card.id !== movingCard.id).map((card) => boundsOf(card))
+  const movingDraft = boundsOf(movingCard, draftX, draftY)
+
+  // Filter to "nearby" cards only — the nearest object(s).
+  // Sorted by edge-distance ascending so the closest target wins ties.
+  const reach = Math.max(movingCard.width, movingCard.height) * NEARBY_FACTOR
+  const others = cards
+    .filter((card) => card.id !== movingCard.id)
+    .map((card) => {
+      const b = boundsOf(card)
+      return { ...b, distance: rectDistance(movingDraft, b) }
+    })
+    .filter((b) => b.distance <= reach)
+    .sort((a, b) => a.distance - b.distance)
+
   let x = draftX
   let y = draftY
-  const guides = []
 
+  // Per axis: find the single closest other card whose edges align within threshold.
+  // "Closest" = smallest rectDistance, then smallest |diff| as tiebreaker.
   const findAxisSnap = (axis) => {
     const isX = axis === 'x'
     const size = isX ? movingCard.width : movingCard.height
     const draftStart = isX ? draftX : draftY
     const movingEdges = [
-      { key: 'start', value: draftStart, offset: 0 },
-      { key: 'center', value: draftStart + size / 2, offset: size / 2 },
-      { key: 'end', value: draftStart + size, offset: size },
+      { key: 'start',  value: draftStart },
+      { key: 'center', value: draftStart + size / 2 },
+      { key: 'end',    value: draftStart + size },
     ]
-    const targetKeys = isX
-      ? ['left', 'centerX', 'right']
-      : ['top', 'centerY', 'bottom']
+    const targetKeys = isX ? ['left', 'centerX', 'right'] : ['top', 'centerY', 'bottom']
 
-    let best = null
     for (const other of others) {
+      let best = null
       for (const movingEdge of movingEdges) {
         for (const key of targetKeys) {
           const diff = other[key] - movingEdge.value
           if (Math.abs(diff) > threshold) continue
           if (!best || Math.abs(diff) < Math.abs(best.diff)) {
-            best = { diff, coordinate: other[key], movingEdge, other }
+            best = { diff, coordinate: other[key], other }
           }
         }
       }
+      if (best) return best // first (= nearest) other with any valid alignment wins
     }
-    return best
+    return null
   }
 
   const snapX = findAxisSnap('x')
@@ -68,25 +91,31 @@ function getSnapResult({ cards, movingCard, draftX, draftY, zoom }) {
   if (snapY) y = draftY + snapY.diff
 
   let moving = boundsOf(movingCard, x, y)
-  const equalSpacing = getEqualSpacingSnap(moving, others, threshold)
-  if (!snapX && equalSpacing.dx !== 0) x += equalSpacing.dx
-  if (!snapY && equalSpacing.dy !== 0) y += equalSpacing.dy
-  moving = boundsOf(movingCard, x, y)
 
+  // Equal-spacing snap only fires if no edge alignment was found and only against
+  // immediate neighbors, which getSpacingNeighbors already enforces.
+  if (!snapX || !snapY) {
+    const equalSpacing = getEqualSpacingSnap(moving, others, threshold)
+    if (!snapX && equalSpacing.dx !== 0) x += equalSpacing.dx
+    if (!snapY && equalSpacing.dy !== 0) y += equalSpacing.dy
+    moving = boundsOf(movingCard, x, y)
+  }
+
+  const guides = []
   if (snapX) {
     guides.push({
       axis: 'x',
       x: snapX.coordinate,
-      y1: Math.min(moving.top, snapX.other.top) - 24,
-      y2: Math.max(moving.bottom, snapX.other.bottom) + 24,
+      y1: Math.min(moving.top, snapX.other.top) - 16,
+      y2: Math.max(moving.bottom, snapX.other.bottom) + 16,
     })
   }
   if (snapY) {
     guides.push({
       axis: 'y',
       y: snapY.coordinate,
-      x1: Math.min(moving.left, snapY.other.left) - 24,
-      x2: Math.max(moving.right, snapY.other.right) + 24,
+      x1: Math.min(moving.left, snapY.other.left) - 16,
+      x2: Math.max(moving.right, snapY.other.right) + 16,
     })
   }
 
