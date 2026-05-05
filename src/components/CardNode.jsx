@@ -23,6 +23,7 @@ const SHAPE_PAD = {
 const MIN_SIZE = {
   rect:          { w: 140, h: 60  },
   text:          { w: 80,  h: 28  },
+  image:         { w: 80,  h: 60  },
   rectangle:     { w: 120, h: 70  },
   square:        { w: 100, h: 100 },
   circle:        { w: 80,  h: 80  },
@@ -33,8 +34,6 @@ const MIN_SIZE = {
   star:          { w: 130, h: 130 },
   arrow:         { w: 160, h: 80  },
 }
-
-const ASPECT_LOCKED = new Set(['circle', 'square'])
 
 export default function CardNode({
   card,
@@ -91,7 +90,6 @@ export default function CardNode({
       const min = MIN_SIZE[shape] || MIN_SIZE.rect
       let w = Math.max(min.w, resizing.startW + dx)
       let h = Math.max(min.h, resizing.startH + dy)
-      if (ASPECT_LOCKED.has(shape)) { const s = Math.max(w, h); w = s; h = s }
       onResize(w, h)
     }
     const onUp = () => setResizing(null)
@@ -125,7 +123,7 @@ export default function CardNode({
     if (editH !== null) {
       const min = MIN_SIZE[nodeShape] || MIN_SIZE.rect
       const newH = Math.max(min.h, editH)
-      const newW = ASPECT_LOCKED.has(nodeShape) ? newH : card.width
+      const newW = card.width
       onResize(newW, newH)
       setEditH(null)
     }
@@ -134,7 +132,7 @@ export default function CardNode({
 
   const showHandles = selected || hovered || linkTarget
   const displayH = editH ?? card.height
-  const displayW = (ASPECT_LOCKED.has(nodeShape) && editH != null) ? editH : card.width
+  const displayW = card.width
 
   // Shared: link handles on all four sides
   const handles = showHandles && (
@@ -155,6 +153,28 @@ export default function CardNode({
       </svg>
     </div>
   )
+
+  if (nodeShape === 'image') {
+    const image = card.description?.image
+    return (
+      <div
+        className={`card-node image-node${selected ? ' selected' : ''}${linkTarget ? ' link-target' : ''}`}
+        style={{ left: card.x, top: card.y, width: displayW, height: displayH }}
+        onMouseDown={(e) => { if (editingTitle) return; onMouseDown(e) }}
+        onDoubleClick={(e) => { e.stopPropagation(); onDoubleClick() }}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+      >
+        {image?.src ? (
+          <img src={image.src} alt={card.title || image.name || 'Pasted image'} draggable={false} />
+        ) : (
+          <div className="image-node-empty">Image</div>
+        )}
+        {handles}
+        {resizeHandle}
+      </div>
+    )
+  }
 
   // ── TEXT NODE — plain text on canvas, no bg ─────────────────────────
   if (nodeShape === 'text') {

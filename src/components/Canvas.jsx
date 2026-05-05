@@ -9,6 +9,8 @@ const MIN_ZOOM = 0.2
 const MAX_ZOOM = 3
 const WORLD_OFFSET = 10000
 const SNAP_THRESHOLD_PX = 6
+const PASTE_OFFSET = 32
+const PASTED_IMAGE_MAX_SIZE = 420
 // Only consider cards whose bounding box edge-distance is within this multiple of
 // the moving card's larger side. Anything farther is "not the nearest object".
 const NEARBY_FACTOR = 4
@@ -36,6 +38,47 @@ const boundsOf = (card, x = card.x, y = card.y) => ({
 })
 
 const rangesOverlap = (a1, a2, b1, b2) => Math.max(a1, b1) <= Math.min(a2, b2)
+
+const cloneCardForPaste = (card) => {
+  const {
+    id,
+    board_id,
+    created_at,
+    updated_at,
+    ...copyable
+  } = card
+  return typeof structuredClone === 'function'
+    ? structuredClone(copyable)
+    : JSON.parse(JSON.stringify(copyable))
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result)
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })
+}
+
+function getImageDimensions(src) {
+  return new Promise((resolve) => {
+    const image = new Image()
+    image.onload = () => resolve({ width: image.naturalWidth, height: image.naturalHeight })
+    image.onerror = () => resolve({ width: 320, height: 220 })
+    image.src = src
+  })
+}
+
+function fitImageSize(width, height) {
+  const safeW = Math.max(1, width || 320)
+  const safeH = Math.max(1, height || 220)
+  const scale = Math.min(1, PASTED_IMAGE_MAX_SIZE / Math.max(safeW, safeH))
+  return {
+    width: Math.max(80, Math.round(safeW * scale)),
+    height: Math.max(60, Math.round(safeH * scale)),
+  }
+}
 
 function getSnapResult({ cards, movingCard, draftX, draftY, zoom }) {
   const threshold = SNAP_THRESHOLD_PX / zoom
@@ -247,10 +290,13 @@ export default function Canvas({
   setTool,
 }) {
   const containerRef = useRef(null)
+  const lastPointerWorldRef = useRef(null)
+  const pendingObjectPasteRef = useRef(null)
   const [view, setView] = useState({ x: 0, y: 0, zoom: 1 })
   const [panning, setPanning] = useState(null)
   const [dragging, setDragging] = useState(null)
   const [snapVisual, setSnapVisual] = useState(null)
+  const [copiedCard, setCopiedCard] = useState(null)
   const [linking, setLinking] = useState(null) // { sourceId, sourceSide, x, y }
   const [hoveredCardId, setHoveredCardId] = useState(null)
   const [selectedConnectorId, setSelectedConnectorId] = useState(null)
@@ -300,6 +346,13 @@ export default function Canvas({
     y: wy * view.zoom + view.y,
   })
 
+  const getViewportCenterWorld = () => {
+    const rect = containerRef.current.getBoundingClientRect()
+    return screenToWorld(rect.left + rect.width / 2, rect.top + rect.height / 2)
+  }
+
+  const getPasteWorldPoint = () => lastPointerWorldRef.current || getViewportCenterWorld()
+
   const onWheel = (e) => {
     e.preventDefault()
     const rect = containerRef.current.getBoundingClientRect()
@@ -326,6 +379,7 @@ export default function Canvas({
   }
 
   const onMouseDown = (e) => {
+    lastPointerWorldRef.current = screenToWorld(e.clientX, e.clientY)
     const isEmpty = e.target === containerRef.current || e.target.classList.contains('canvas-grid')
     if (e.button === 1 || (e.button === 0 && e.altKey) || (e.button === 0 && isEmpty && tool === 'select' && !linking)) {
       setPanning({ x: e.clientX, y: e.clientY, vx: view.x, vy: view.y })
@@ -356,6 +410,7 @@ export default function Canvas({
   }
 
   const onMouseMove = (e) => {
+    lastPointerWorldRef.current = screenToWorld(e.clientX, e.clientY)
     if (panning) {
       setView((v) => ({
         ...v,
@@ -474,7 +529,60 @@ export default function Canvas({
   useEffect(() => {
     const isTyping = (el) =>
       el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)
+    const pasteCopiedCard = async () => {
+      if (!copiedCard) return
+      const nextX = (copiedCard.x ?? getPasteWorldPoint().x) + PASTE_OFFSET
+      const nextY = (copiedCard.y ?? getPasteWorldPoint().y) + PASTE_OFFSET
+      const created = await onCreateCard(nextX, nextY, {
+        ...cloneCardForPaste(copiedCard),
+        x: nextX,
+        y: nextY,
+        title: copiedCard.title || 'Copy',
+      })
+      if (created) setCopiedCard(cloneCardForPaste(created))
+    }
+    const pasteImageFile = async (file) => {
+      const src = await readFileAsDataUrl(file)
+      const dimensions = await getImageDimensions(src)
+      const size = fitImageSize(dimensions.width, dimensions.height)
+      const point = getPasteWorldPoint()
+      await onCreateCard(point.x - size.width / 2, point.y - size.height / 2, {
+        node_shape: 'image',
+        title: file.name || 'Pasted image',
+        color: '#ffffff',
+        width: size.width,
+        height: size.height,
+        description: {
+          image: {
+            src,
+            name: file.name || 'Pasted image',
+            type: file.type || 'image/png',
+          },
+        },
+      })
+    }
     const onKey = (e) => {
+      const commandKey = e.metaKey || e.ctrlKey
+      if (commandKey && (e.key === 'c' || e.key === 'C')) {
+        if (isTyping(e.target)) return
+        const selectedCard = selectedId ? cardsById[selectedId] : null
+        if (selectedCard) {
+          e.preventDefault()
+          setCopiedCard(cloneCardForPaste(selectedCard))
+        }
+        return
+      }
+      if (commandKey && (e.key === 'v' || e.key === 'V')) {
+        if (isTyping(e.target)) return
+        if (copiedCard) {
+          if (pendingObjectPasteRef.current) clearTimeout(pendingObjectPasteRef.current)
+          pendingObjectPasteRef.current = setTimeout(() => {
+            pendingObjectPasteRef.current = null
+            pasteCopiedCard().catch((error) => console.error(error))
+          }, 0)
+        }
+        return
+      }
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (isTyping(e.target)) return
         if (selectedId) onDeleteCard(selectedId)
@@ -496,9 +604,40 @@ export default function Canvas({
         if (e.key === 'Escape' && tool !== 'select') setTool('select')
       }
     }
+    const onPaste = (e) => {
+      if (isTyping(e.target)) return
+      const imageItem = Array.from(e.clipboardData?.items || []).find((item) =>
+        item.kind === 'file' && item.type.startsWith('image/'),
+      )
+      const file = imageItem?.getAsFile()
+      if (!file) return
+      if (pendingObjectPasteRef.current) {
+        clearTimeout(pendingObjectPasteRef.current)
+        pendingObjectPasteRef.current = null
+      }
+      e.preventDefault()
+      pasteImageFile(file).catch((error) => console.error(error))
+    }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [selectedId, selectedConnectorId, onDeleteCard, onDeleteConnector, onSelect, setTool, tool])
+    window.addEventListener('paste', onPaste)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('paste', onPaste)
+      if (pendingObjectPasteRef.current) clearTimeout(pendingObjectPasteRef.current)
+    }
+  }, [
+    selectedId,
+    selectedConnectorId,
+    cardsById,
+    copiedCard,
+    onCreateCard,
+    onDeleteCard,
+    onDeleteConnector,
+    onSelect,
+    setTool,
+    tool,
+    view,
+  ])
 
   const startDrag = (e, card) => {
     e.stopPropagation()

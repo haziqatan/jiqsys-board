@@ -267,6 +267,29 @@
   padding: 0 4px;
 }
 
+.card-node.image-node {
+  overflow: hidden;
+  background: var(--surface);
+}
+.image-node img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  pointer-events: none;
+  user-select: none;
+}
+.image-node-empty {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 13px;
+  background: var(--surface-2);
+}
+
 /* ── Link handles ── */
 .link-handle {
   position: absolute;
