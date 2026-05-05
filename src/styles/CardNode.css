@@ -17,11 +17,12 @@
 }
 
 .card-node:hover  { box-shadow: var(--shadow-md); border-color: var(--border-strong); }
-.card-node:active { cursor: grabbing; }
+.card-node:active { cursor: grabbing; will-change: left, top; }
 .card-node.selected {
   z-index: 5;
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent-soft), var(--shadow-md);
+  will-change: left, top;
 }
 
 /* ── Inner wrapper — clips rounded corners for rect cards ── */
@@ -295,7 +296,22 @@
 .link-handle.right  { right: -22px; }
 
 .card-node:hover .link-handle,
-.card-node.selected .link-handle { opacity: 1; }
+.card-node.selected .link-handle,
+.card-node.link-target .link-handle { opacity: 1; }
+
+/* When a link drag is in progress, glow potential drop targets so it's
+   obvious where you can release. */
+.card-node.link-target {
+  box-shadow: 0 0 0 2px var(--accent-soft), 0 0 0 4px rgba(59,130,246,.18);
+  border-color: var(--accent);
+}
+.card-node.shape-node.link-target {
+  filter: drop-shadow(0 0 0 2.5px var(--accent)) drop-shadow(0 0 8px rgba(59,130,246,.4));
+}
+.card-node.link-target .link-handle:hover::after {
+  transform: scale(1.4);
+  box-shadow: 0 0 0 2px var(--accent), 0 0 12px rgba(59,130,246,.6);
+}
 
 /* Circle dot */
 .link-handle::after {

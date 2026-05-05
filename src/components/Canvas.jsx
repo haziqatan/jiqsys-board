@@ -375,7 +375,13 @@ export default function Canvas({
         draftY: y - dragging.offsetY,
         zoom: view.zoom,
       })
-      setSnapVisual(snap.visual)
+      // Only update snap state when there's something to show (or to clear) —
+      // skipping no-op updates avoids re-rendering all cards 60×/sec.
+      const hasSnap = snap.visual.guides.length > 0 || snap.visual.measurements.length > 0
+      setSnapVisual((prev) => {
+        if (!hasSnap) return prev ? null : prev
+        return snap.visual
+      })
       onUpdateCard(dragging.id, {
         x: snap.x,
         y: snap.y,
@@ -396,24 +402,65 @@ export default function Canvas({
     }
     if (linking) {
       const { x, y } = screenToWorld(e.clientX, e.clientY)
-      const target = cards.find(
-        (c) =>
-          c.id !== linking.sourceId &&
-          x >= c.x &&
-          x <= c.x + c.width &&
-          y >= c.y &&
-          y <= c.y + c.height,
+
+      // Drop target detection: pass 1 = exact AABB hit, pass 2 = padded hit
+      // (the padded zone covers the link-handle area that sits outside the
+      // card box, so dropping on a target's visible handle still resolves
+      // to that target). Pass 3 falls back to "nearest card within reach"
+      // so a near-miss still completes the connection.
+      const candidates = cards.filter((c) => c.id !== linking.sourceId)
+      const HANDLE_PAD = 28 // a little more than the 22px handle outset
+
+      let target = candidates.find(
+        (c) => x >= c.x && x <= c.x + c.width && y >= c.y && y <= c.y + c.height,
       )
+      if (!target) {
+        target = candidates.find(
+          (c) =>
+            x >= c.x - HANDLE_PAD &&
+            x <= c.x + c.width + HANDLE_PAD &&
+            y >= c.y - HANDLE_PAD &&
+            y <= c.y + c.height + HANDLE_PAD,
+        )
+      }
+      if (!target) {
+        // Nearest-card fallback within a generous reach (helps near-misses)
+        const REACH = 48
+        let bestDist = Infinity
+        for (const c of candidates) {
+          const cx = c.x + c.width / 2
+          const cy = c.y + c.height / 2
+          const dxToBox = Math.max(c.x - x, 0, x - (c.x + c.width))
+          const dyToBox = Math.max(c.y - y, 0, y - (c.y + c.height))
+          const edgeDist = Math.hypot(dxToBox, dyToBox)
+          if (edgeDist <= REACH && edgeDist < bestDist) {
+            bestDist = edgeDist
+            target = c
+          }
+        }
+      }
+
       if (target) {
-        // pick target side closest to drop point
-        const tCenter = rectCenter(target)
-        const dx = x - tCenter.x
-        const dy = y - tCenter.y
-        let targetSide
-        if (Math.abs(dx) * target.height >= Math.abs(dy) * target.width) {
-          targetSide = dx >= 0 ? 'right' : 'left'
-        } else {
-          targetSide = dy >= 0 ? 'bottom' : 'top'
+        // Prefer the side whose handle the user actually released on
+        // (when DOM target is a link-handle of the target card).
+        let targetSide = null
+        const handleEl = e.target?.closest?.('.link-handle')
+        if (handleEl) {
+          const sideClass = ['top', 'right', 'bottom', 'left'].find((s) =>
+            handleEl.classList.contains(s),
+          )
+          if (sideClass) targetSide = sideClass
+        }
+        if (!targetSide) {
+          // Geometric fallback: side closest to drop point
+          const tCenter = rectCenter(target)
+          const dx = x - tCenter.x
+          const dy = y - tCenter.y
+          if (Math.abs(dx) * target.height >= Math.abs(dy) * target.width) {
+            targetSide = dx >= 0 ? 'right' : 'left'
+          } else {
+            targetSide = dy >= 0 ? 'bottom' : 'top'
+          }
         }
         onCreateConnector(linking.sourceId, target.id, {
           source_side: linking.sourceSide || null,
@@ -568,6 +615,7 @@ export default function Canvas({
             card={card}
             selected={selectedId === card.id}
             hovered={hoveredCardId === card.id}
+            linkTarget={!!linking && linking.sourceId !== card.id}
             onMouseDown={(e) => startDrag(e, card)}
             onDoubleClick={() => {
               if (isDetailCard(card)) onOpenDetail(card.id)
@@ -577,6 +625,8 @@ export default function Canvas({
             onStartLink={(e, side) => startLink(e, card, side)}
             onResize={(w, h) => onUpdateCard(card.id, { width: w, height: h })}
             onTitleChange={(t) => onUpdateCard(card.id, { title: t })}
+            onDescriptionChange={(html) => onUpdateCard(card.id, { description: { html } })}
+            onColorChange={(color) => onUpdateCard(card.id, { color })}
             statusOptions={statusOptions}
             assigneeOptions={assigneeOptions}
             tagOptions={tagOptions}

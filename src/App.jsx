@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import Canvas from './components/Canvas'
 import Toolbar from './components/Toolbar'
 import CardDetail from './components/CardDetail'
@@ -63,6 +63,12 @@ export default function App() {
   const [statusOptions, setStatusOptions] = useState(loadStatusOptions)
   const [assigneeOptions, setAssigneeOptions] = useState(() => loadOptions(ASSIGNEE_OPTIONS_KEY))
   const [tagOptions, setTagOptions] = useState(() => loadOptions(TAG_OPTIONS_KEY))
+
+  // Per-card write batching state. Local updates are applied instantly for
+  // smooth dragging/resizing; the actual Supabase write is debounced so we
+  // don't fire 60+ writes per second, and a recent-write window lets us
+  // ignore realtime echoes that would otherwise snap a dragged card backward.
+  const writeStateRef = useRef(new Map())
 
   useEffect(() => {
     const editable = statusOptions.filter((option) => option.value)
@@ -174,6 +180,18 @@ export default function App() {
               return [...prev, payload.new]
             }
             if (payload.eventType === 'UPDATE') {
+              // Echo guard: when WE just wrote this card (or have a write in
+              // flight / queued), the realtime echo would clobber whatever
+              // newer position the user has dragged to since. Skip it — our
+              // local optimistic state is more recent.
+              const state = writeStateRef.current.get(payload.new.id)
+              if (state) {
+                const recentlyFlushed =
+                  state.lastFlushAt && Date.now() - state.lastFlushAt < 1000
+                if (state.timeout || state.pending || state.latestPatch || recentlyFlushed) {
+                  return prev
+                }
+              }
               return prev.map((c) => (c.id === payload.new.id ? { ...c, ...payload.new } : c))
             }
             if (payload.eventType === 'DELETE') {
@@ -262,12 +280,67 @@ export default function App() {
     [boardId],
   )
 
-  const handleUpdateCard = useCallback(async (id, patch) => {
+  // Flush the pending merged patch for a card to Supabase.
+  const flushCardWrite = useCallback((id) => {
+    const state = writeStateRef.current.get(id)
+    if (!state || !state.latestPatch) return
+    const patch = state.latestPatch
+    state.latestPatch = null
+    state.timeout = null
+    state.pending = true
+    updateCard(id, patch)
+      .catch((e) => console.error(e))
+      .finally(() => {
+        state.pending = false
+        state.lastFlushAt = Date.now()
+      })
+  }, [])
+
+  const handleUpdateCard = useCallback((id, patch) => {
+    // 1) Optimistic local state update — instant, smooth visual feedback.
     setCards((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)))
-    try {
-      await updateCard(id, patch)
-    } catch (e) {
-      console.error(e)
+
+    // 2) Debounced DB write — coalesce rapid updates (drag/resize) into a
+    //    single trailing write, with a max-wait so long continuous drags
+    //    still persist progress periodically.
+    let state = writeStateRef.current.get(id)
+    if (!state) {
+      state = { latestPatch: null, timeout: null, pending: false, lastFlushAt: 0, firstQueuedAt: 0 }
+      writeStateRef.current.set(id, state)
+    }
+    state.latestPatch = { ...(state.latestPatch || {}), ...patch }
+    if (!state.firstQueuedAt) state.firstQueuedAt = Date.now()
+
+    if (state.timeout) clearTimeout(state.timeout)
+
+    // Force a flush if this update window has been open for >500ms — keeps
+    // long drags from losing all progress if the user closes the tab.
+    if (Date.now() - state.firstQueuedAt > 500) {
+      state.firstQueuedAt = 0
+      flushCardWrite(id)
+    } else {
+      state.timeout = setTimeout(() => {
+        state.firstQueuedAt = 0
+        flushCardWrite(id)
+      }, 140)
+    }
+  }, [flushCardWrite])
+
+  // Flush all pending writes when unmounting (e.g. on navigation away).
+  useEffect(() => {
+    const writes = writeStateRef.current
+    return () => {
+      for (const [id, state] of writes.entries()) {
+        if (state.timeout) {
+          clearTimeout(state.timeout)
+          state.timeout = null
+        }
+        if (state.latestPatch) {
+          const patch = state.latestPatch
+          state.latestPatch = null
+          updateCard(id, patch).catch((e) => console.error(e))
+        }
+      }
     }
   }, [])
 

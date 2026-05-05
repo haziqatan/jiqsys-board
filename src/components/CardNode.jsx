@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { getStatusColor } from '../lib/status'
 import { getOptionColor } from '../lib/options'
+import ShapeEditorInner from './ShapeEditorInner'
 import '../styles/CardNode.css'
 
 const SHAPE_CLIP = {
@@ -39,6 +40,7 @@ export default function CardNode({
   card,
   selected,
   hovered,
+  linkTarget,
   onMouseDown,
   onDoubleClick,
   onMouseEnter,
@@ -46,6 +48,8 @@ export default function CardNode({
   onStartLink,
   onResize,
   onTitleChange,
+  onDescriptionChange,
+  onColorChange,
   statusOptions,
   assigneeOptions,
   tagOptions,
@@ -55,6 +59,7 @@ export default function CardNode({
   const [draftTitle, setDraftTitle] = useState(card.title)
   const [editH, setEditH] = useState(null)
   const titleRef = useRef(null)
+  const nodeRef = useRef(null)
   const [resizing, setResizing] = useState(null)
 
   useEffect(() => {
@@ -127,7 +132,7 @@ export default function CardNode({
     if (draftTitle !== card.title) onTitleChange(draftTitle)
   }
 
-  const showHandles = selected || hovered
+  const showHandles = selected || hovered || linkTarget
   const displayH = editH ?? card.height
   const displayW = (ASPECT_LOCKED.has(nodeShape) && editH != null) ? editH : card.width
 
@@ -163,7 +168,7 @@ export default function CardNode({
     const taHeight = Math.max(20, displayH - 8)
     return (
       <div
-        className={`card-node text-node${selected ? ' selected' : ''}`}
+        className={`card-node text-node${selected ? ' selected' : ''}${linkTarget ? ' link-target' : ''}`}
         style={{ left: card.x, top: card.y, width: displayW, height: displayH }}
         onMouseDown={(e) => { if (editingTitle) return; onMouseDown(e) }}
         onDoubleClick={(e) => { e.stopPropagation(); setEditingTitle(true) }}
@@ -206,27 +211,24 @@ export default function CardNode({
     const borderRadius =
       nodeShape === 'circle' ? '50%' :
       (nodeShape === 'rectangle' || nodeShape === 'square') ? 'var(--radius)' : 0
-    const pad = SHAPE_PAD[nodeShape] ?? 36
-    const taHeight = Math.max(40, displayH - pad)
 
-    const handleInput = (e) => {
-      const ta = e.target
-      ta.style.height = '0px'
-      const min = MIN_SIZE[nodeShape] || MIN_SIZE.rect
-      setEditH(Math.max(min.h, ta.scrollHeight + pad))
-      setDraftTitle(ta.value)
-    }
+    // Initial TipTap content: prefer saved HTML, fall back to plain title
+    const richContent = card.description?.html
+    const initialContent = richContent || (card.title ? `<p>${card.title}</p>` : '')
+
+    const closeShapeEdit = () => setEditingTitle(false)
 
     return (
       <div
-        className={`card-node shape-node shape-${nodeShape}${selected ? ' selected' : ''}`}
+        ref={nodeRef}
+        className={`card-node shape-node shape-${nodeShape}${selected ? ' selected' : ''}${linkTarget ? ' link-target' : ''}`}
         style={{ left: card.x, top: card.y, width: displayW, height: displayH }}
         onMouseDown={(e) => { if (editingTitle) return; onMouseDown(e) }}
         onDoubleClick={(e) => { e.stopPropagation(); setEditingTitle(true) }}
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
       >
-        {/* Clipped colored background — clip-path/border-radius applied here, not on outer */}
+        {/* Clipped colored background */}
         <div
           className="shape-bg"
           style={{
@@ -235,20 +237,21 @@ export default function CardNode({
           }}
         />
 
-        {/* Text layer — floats above the bg, centered */}
+        {/* Rich text editing layer */}
         {editingTitle ? (
-          <textarea
-            ref={titleRef}
-            className="shape-text-edit"
-            value={draftTitle}
-            style={{ height: taHeight }}
-            onChange={handleInput}
-            onBlur={commitTitle}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitTitle() }
-              if (e.key === 'Escape') { setDraftTitle(card.title); setEditingTitle(false) }
-            }}
-            onMouseDown={(e) => e.stopPropagation()}
+          <ShapeEditorInner
+            initialContent={initialContent}
+            onUpdate={onDescriptionChange}
+            onClose={closeShapeEdit}
+            onColorChange={onColorChange}
+            cardColor={card.color}
+            anchorEl={nodeRef.current}
+          />
+        ) : richContent ? (
+          <div
+            className="shape-label-rich"
+            dangerouslySetInnerHTML={{ __html: richContent }}
+            onDoubleClick={(e) => { e.stopPropagation(); setEditingTitle(true) }}
           />
         ) : (
           <div
@@ -272,7 +275,7 @@ export default function CardNode({
 
   return (
     <div
-      className={`card-node shape-rect${selected ? ' selected' : ''}`}
+      className={`card-node shape-rect${selected ? ' selected' : ''}${linkTarget ? ' link-target' : ''}`}
       style={{ left: card.x, top: card.y, width: card.width, height: card.height }}
       onMouseDown={(e) => { if (editingTitle) return; onMouseDown(e) }}
       onDoubleClick={(e) => { e.stopPropagation(); onDoubleClick() }}
