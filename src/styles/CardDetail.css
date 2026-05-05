@@ -137,19 +137,212 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 30px;
-  margin-top: 4px;
-  padding: 4px 0;
+  min-height: 32px;
+  margin: 6px 0 2px;
+  padding: 6px 2px;
   border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
 }
 .cd-settings-header span {
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
   color: var(--text-muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 .cd-settings {
   display: flex;
   flex-direction: column;
+  gap: 14px;
+  padding-top: 10px;
+}
+
+/* ── Collapsed settings: a single clickable summary row ─────────── */
+.cd-settings-collapsed {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  margin-top: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  cursor: pointer;
+  transition: background 140ms var(--ease), border-color 140ms var(--ease);
+  text-align: left;
+}
+.cd-settings-collapsed:hover {
+  background: #fff;
+  border-color: var(--border-strong);
+}
+.cd-collapsed-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  color: var(--text-soft);
+  flex-shrink: 0;
+}
+.cd-settings-collapsed:hover .cd-collapsed-toggle {
+  color: var(--text-muted);
+  background: var(--surface-2);
+}
+
+/* Compact summary chips */
+.cd-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+.cd-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text);
+  background: color-mix(in srgb, var(--chip-c, #cbd0db) 14%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--chip-c, #cbd0db) 32%, transparent);
+  white-space: nowrap;
+  line-height: 1.3;
+}
+.cd-chip-muted {
+  color: var(--text-muted);
+  background: var(--surface);
+  border-color: var(--border);
+}
+.cd-chip-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.cd-chip-extra {
+  color: var(--text-muted);
+  font-weight: 400;
+  margin-left: 2px;
+}
+.cd-chip-color {
+  padding: 2px 6px;
+  background: var(--surface);
+  border-color: var(--border);
+}
+.cd-chip-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  border: 1.5px solid #fff;
+  box-shadow: 0 0 0 1px var(--border-strong);
+  flex-shrink: 0;
+}
+.cd-chip-bar {
+  display: inline-block;
+  width: 22px;
+  height: 5px;
+  border-radius: 1px;
+  background-color: var(--accent);
+  flex-shrink: 0;
+}
+.cd-chip-bar.style-striped,
+.cd-chip-bar.style-animated {
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent 0,
+    transparent 3px,
+    rgba(255,255,255,0.6) 3px,
+    rgba(255,255,255,0.6) 6px
+  );
+}
+.cd-chip-bar.style-animated {
+  animation: stripe-slide 1s linear infinite;
+}
+
+/* ── Settings section grouping ── */
+.cd-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cd-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.cd-manage-btn {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--accent);
+  letter-spacing: 0;
+  text-transform: none;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  transition: background 120ms var(--ease);
+  cursor: pointer;
+}
+.cd-manage-btn:hover {
+  background: var(--accent-soft);
+}
+
+/* Appearance: color swatch + bar style picker side-by-side */
+.cd-appearance {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.cd-appearance-color {
+  position: relative;
+  flex-shrink: 0;
+}
+.cd-appearance .cd-bar-picker {
+  flex: 1;
+}
+
+/* Fieldgrid: 3 narrow inputs side-by-side (Start, End, Estimate) */
+.cd-fieldgrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 70px;
+  gap: 8px;
+}
+.cd-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.cd-field > span {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.cd-field .cd-input {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  padding: 6px 8px;
+}
+.cd-field .cd-input:hover {
+  border-color: var(--border-strong);
+}
+
+.cd-empty-hint {
+  font-size: 12px;
+  color: var(--text-soft);
+  font-style: italic;
 }
 .cd-row-label {
   display: flex;
@@ -217,6 +410,15 @@
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-height: 200px;
+}
+.cd-description .rich-editor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.cd-description .editor-content {
+  flex: 1;
 }
 
 /* ── Color bar style picker ── */
