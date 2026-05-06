@@ -41,11 +41,13 @@ export default function CardNode({
   hovered,
   linkTarget,
   searchPulse,
+  ghost,            // render translucent preview, no handles/edit
   onMouseDown,
   onDoubleClick,
   onMouseEnter,
   onMouseLeave,
   onStartLink,
+  onHoverLinkHandle, // (side|null) → suggest a ghost on this side
   onResize,
   onTitleChange,
   onDescriptionChange,
@@ -136,17 +138,37 @@ export default function CardNode({
   const displayW = card.width
 
   // Shared: link handles on all four sides
-  const handles = showHandles && (
+  const handles = !ghost && showHandles && (
     <>
-      <div className="link-handle top"    onMouseDown={(e) => onStartLink(e, 'top')} />
-      <div className="link-handle right"  onMouseDown={(e) => onStartLink(e, 'right')} />
-      <div className="link-handle bottom" onMouseDown={(e) => onStartLink(e, 'bottom')} />
-      <div className="link-handle left"   onMouseDown={(e) => onStartLink(e, 'left')} />
+      <div
+        className="link-handle top"
+        onMouseDown={(e) => onStartLink(e, 'top')}
+        onMouseEnter={() => onHoverLinkHandle?.('top')}
+        onMouseLeave={() => onHoverLinkHandle?.(null)}
+      />
+      <div
+        className="link-handle right"
+        onMouseDown={(e) => onStartLink(e, 'right')}
+        onMouseEnter={() => onHoverLinkHandle?.('right')}
+        onMouseLeave={() => onHoverLinkHandle?.(null)}
+      />
+      <div
+        className="link-handle bottom"
+        onMouseDown={(e) => onStartLink(e, 'bottom')}
+        onMouseEnter={() => onHoverLinkHandle?.('bottom')}
+        onMouseLeave={() => onHoverLinkHandle?.(null)}
+      />
+      <div
+        className="link-handle left"
+        onMouseDown={(e) => onStartLink(e, 'left')}
+        onMouseEnter={() => onHoverLinkHandle?.('left')}
+        onMouseLeave={() => onHoverLinkHandle?.(null)}
+      />
     </>
   )
 
   // Shared: resize grip at bottom-right
-  const resizeHandle = selected && (
+  const resizeHandle = !ghost && selected && (
     <div className="resize-handle" onMouseDown={startResize}>
       <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
         <path d="M1 7L7 1" stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round"/>
@@ -159,7 +181,7 @@ export default function CardNode({
     const image = card.description?.image
     return (
       <div
-        className={`card-node image-node${selected ? ' selected' : ''}${linkTarget ? ' link-target' : ''}${searchPulse ? ' search-pulse' : ''}`}
+        className={`card-node image-node${selected ? ' selected' : ''}${linkTarget ? ' link-target' : ''}${searchPulse ? ' search-pulse' : ''}${ghost ? ' ghost-node' : ''}`}
         style={{ left: card.x, top: card.y, width: displayW, height: displayH }}
         onMouseDown={(e) => { if (editingTitle) return; onMouseDown(e) }}
         onDoubleClick={(e) => { e.stopPropagation(); onDoubleClick() }}
@@ -189,7 +211,7 @@ export default function CardNode({
     const taHeight = Math.max(20, displayH - 8)
     return (
       <div
-        className={`card-node text-node${selected ? ' selected' : ''}${linkTarget ? ' link-target' : ''}${searchPulse ? ' search-pulse' : ''}`}
+        className={`card-node text-node${selected ? ' selected' : ''}${linkTarget ? ' link-target' : ''}${searchPulse ? ' search-pulse' : ''}${ghost ? ' ghost-node' : ''}`}
         style={{ left: card.x, top: card.y, width: displayW, height: displayH }}
         onMouseDown={(e) => { if (editingTitle) return; onMouseDown(e) }}
         onDoubleClick={(e) => { e.stopPropagation(); setEditingTitle(true) }}
@@ -242,7 +264,7 @@ export default function CardNode({
     return (
       <div
         ref={nodeRef}
-        className={`card-node shape-node shape-${nodeShape}${selected ? ' selected' : ''}${linkTarget ? ' link-target' : ''}${searchPulse ? ' search-pulse' : ''}`}
+        className={`card-node shape-node shape-${nodeShape}${selected ? ' selected' : ''}${linkTarget ? ' link-target' : ''}${searchPulse ? ' search-pulse' : ''}${ghost ? ' ghost-node' : ''}`}
         style={{ left: card.x, top: card.y, width: displayW, height: displayH }}
         onMouseDown={(e) => { if (editingTitle) return; onMouseDown(e) }}
         onDoubleClick={(e) => { e.stopPropagation(); setEditingTitle(true) }}
@@ -296,7 +318,7 @@ export default function CardNode({
 
   return (
     <div
-      className={`card-node shape-rect${selected ? ' selected' : ''}${linkTarget ? ' link-target' : ''}${searchPulse ? ' search-pulse' : ''}`}
+      className={`card-node shape-rect${selected ? ' selected' : ''}${linkTarget ? ' link-target' : ''}${searchPulse ? ' search-pulse' : ''}${ghost ? ' ghost-node' : ''}`}
       style={{ left: card.x, top: card.y, width: card.width, height: card.height }}
       onMouseDown={(e) => { if (editingTitle) return; onMouseDown(e) }}
       onDoubleClick={(e) => { e.stopPropagation(); onDoubleClick() }}

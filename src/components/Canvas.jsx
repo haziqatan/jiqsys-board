@@ -80,6 +80,48 @@ function fitImageSize(width, height) {
   }
 }
 
+// Compute where a "next-shape" ghost should sit relative to its source card.
+// `side` is the side of the source the user is hovering. The ghost starts at
+// a default offset; if it overlaps any other card, we slide further along the
+// primary direction past the obstacle until we find a clear spot.
+const GHOST_GAP = 80
+const GHOST_PUSH = 24
+const GHOST_OPPOSITE = { top: 'bottom', bottom: 'top', left: 'right', right: 'left' }
+
+function computeGhostPosition(src, side, allCards) {
+  const w = src.width
+  const h = src.height
+  let x = src.x
+  let y = src.y
+  if (side === 'right')        x = src.x + src.width  + GHOST_GAP
+  else if (side === 'left')    x = src.x - w - GHOST_GAP
+  else if (side === 'bottom')  y = src.y + src.height + GHOST_GAP
+  else if (side === 'top')     y = src.y - h - GHOST_GAP
+
+  const overlapsAt = (gx, gy) => {
+    for (const c of allCards) {
+      if (c.id === src.id) continue
+      if (
+        gx < c.x + c.width  && gx + w > c.x &&
+        gy < c.y + c.height && gy + h > c.y
+      ) return c
+    }
+    return null
+  }
+
+  let attempts = 0
+  let collision = overlapsAt(x, y)
+  while (collision && attempts < 24) {
+    if (side === 'right')        x = collision.x + collision.width  + GHOST_PUSH
+    else if (side === 'left')    x = collision.x - w - GHOST_PUSH
+    else if (side === 'bottom')  y = collision.y + collision.height + GHOST_PUSH
+    else if (side === 'top')     y = collision.y - h - GHOST_PUSH
+    collision = overlapsAt(x, y)
+    attempts++
+  }
+  return { x, y, width: w, height: h }
+}
+
 function getSnapResult({ cards, movingCard, draftX, draftY, zoom }) {
   const threshold = SNAP_THRESHOLD_PX / zoom
   const movingDraft = boundsOf(movingCard, draftX, draftY)
@@ -304,6 +346,9 @@ export default function Canvas({
   const [hoveredCardId, setHoveredCardId] = useState(null)
   const [selectedConnectorId, setSelectedConnectorId] = useState(null)
   const [searchPulseId, setSearchPulseId] = useState(null)
+  // Link-handle hover: { sourceId, side } | null. Drives the ghost preview.
+  const [linkHover, setLinkHover] = useState(null)
+  const linkHoverHideTimerRef = useRef(null)
 
   const cardsById = useMemo(() => {
     const m = {}
@@ -737,7 +782,60 @@ export default function Canvas({
     e.stopPropagation()
     const { x, y } = screenToWorld(e.clientX, e.clientY)
     setLinking({ sourceId: card.id, sourceSide: side, x, y })
+    // Hide ghost the moment a real link drag begins.
+    setLinkHover(null)
   }
+
+  // Link-handle hover handlers. A short delay before hiding gives the
+  // pointer time to travel from the handle onto the ghost (and the ghost's
+  // own enter/leave keep it alive while pointer is over it).
+  const showLinkGhost = (cardId, side) => {
+    if (linking || dragging || panning) return
+    if (linkHoverHideTimerRef.current) {
+      clearTimeout(linkHoverHideTimerRef.current)
+      linkHoverHideTimerRef.current = null
+    }
+    setLinkHover({ sourceId: cardId, side })
+  }
+  const hideLinkGhostSoon = () => {
+    if (linkHoverHideTimerRef.current) clearTimeout(linkHoverHideTimerRef.current)
+    linkHoverHideTimerRef.current = setTimeout(() => {
+      setLinkHover(null)
+      linkHoverHideTimerRef.current = null
+    }, 140)
+  }
+
+  // Click on the ghost → spawn a real card with the same shape & a connector.
+  const commitGhost = async (e) => {
+    e.stopPropagation()
+    if (!linkHover) return
+    const src = cardsById[linkHover.sourceId]
+    if (!src) return
+    const pos = computeGhostPosition(src, linkHover.side, cards)
+    const isRect = (src.node_shape || 'rect') === 'rect'
+    const overrides = {
+      node_shape: src.node_shape || 'rect',
+      width:  pos.width,
+      height: pos.height,
+      color:  src.color,
+      title:  isRect ? 'New card' : '',
+      color_bar_style: src.color_bar_style,
+    }
+    setLinkHover(null)
+    const created = await onCreateCard(pos.x, pos.y, overrides)
+    if (created) {
+      await onCreateConnector(src.id, created.id, {
+        source_side: linkHover.side,
+        target_side: GHOST_OPPOSITE[linkHover.side],
+      })
+      onSelect(created.id)
+    }
+  }
+
+  // Hide ghost + clear timer if any of the gestures take over.
+  useEffect(() => {
+    if ((linking || dragging || panning) && linkHover) setLinkHover(null)
+  }, [linking, dragging, panning, linkHover])
 
   // Compute toolbar position for selected connector
   const selectedConnector = selectedConnectorId
@@ -835,6 +933,25 @@ export default function Canvas({
               conn={{ source_side: linking.sourceSide }}
             />
           )}
+
+          {/* Ghost connector linking source to the ghost card preview */}
+          {linkHover && cardsById[linkHover.sourceId] && (() => {
+            const src = cardsById[linkHover.sourceId]
+            const pos = computeGhostPosition(src, linkHover.side, cards)
+            const ghostTarget = { ...src, id: '__ghost__', x: pos.x, y: pos.y, width: pos.width, height: pos.height }
+            return (
+              <Connector
+                source={src}
+                target={ghostTarget}
+                offset={{ x: WORLD_OFFSET, y: WORLD_OFFSET }}
+                ghost
+                conn={{
+                  source_side: linkHover.side,
+                  target_side: GHOST_OPPOSITE[linkHover.side],
+                }}
+              />
+            )
+          })()}
         </svg>
 
         {cards.map((card) => (
@@ -852,6 +969,9 @@ export default function Canvas({
             onMouseEnter={() => setHoveredCardId(card.id)}
             onMouseLeave={() => setHoveredCardId(null)}
             onStartLink={(e, side) => startLink(e, card, side)}
+            onHoverLinkHandle={(side) =>
+              side ? showLinkGhost(card.id, side) : hideLinkGhostSoon()
+            }
             onResize={(w, h) => onUpdateCard(card.id, { width: w, height: h })}
             onTitleChange={(t) => onUpdateCard(card.id, { title: t })}
             onDescriptionChange={(html) => onUpdateCard(card.id, { description: { html } })}
@@ -861,6 +981,55 @@ export default function Canvas({
             tagOptions={tagOptions}
           />
         ))}
+
+        {/* ── Ghost suggestion (hovered link-handle) ────────────────────── */}
+        {linkHover && cardsById[linkHover.sourceId] && (() => {
+          const src = cardsById[linkHover.sourceId]
+          const pos = computeGhostPosition(src, linkHover.side, cards)
+          const ghostCard = {
+            ...src,
+            id: '__ghost__',
+            x: pos.x,
+            y: pos.y,
+            width: pos.width,
+            height: pos.height,
+            title: '',
+            description: null,
+          }
+          return (
+            <>
+              <CardNode
+                key="__ghost__"
+                card={ghostCard}
+                ghost
+                onMouseDown={commitGhost}
+                onMouseEnter={() => {
+                  // Cancel the pending hide so ghost stays alive while hovered.
+                  if (linkHoverHideTimerRef.current) {
+                    clearTimeout(linkHoverHideTimerRef.current)
+                    linkHoverHideTimerRef.current = null
+                  }
+                }}
+                onMouseLeave={hideLinkGhostSoon}
+                statusOptions={statusOptions}
+                assigneeOptions={assigneeOptions}
+                tagOptions={tagOptions}
+              />
+              <div
+                className="ghost-plus"
+                style={{
+                  position: 'absolute',
+                  left: ghostCard.x,
+                  top: ghostCard.y,
+                  width: ghostCard.width,
+                  height: ghostCard.height,
+                }}
+              >
+                <span>+ Add</span>
+              </div>
+            </>
+          )
+        })()}
 
         {snapVisual && <SnapGuides visual={snapVisual} offset={WORLD_OFFSET} zoom={view.zoom} />}
       </div>
