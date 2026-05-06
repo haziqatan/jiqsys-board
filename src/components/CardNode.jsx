@@ -421,7 +421,7 @@ export default function CardNode({
         {editingTitle ? (
           <ShapeEditorInner
             initialContent={initialContent}
-            onUpdate={onDescriptionChange}
+            onUpdate={(html) => onDescriptionChange({ html })}
             onClose={closeShapeEdit}
             onColorChange={onColorChange}
             cardColor={card.color}

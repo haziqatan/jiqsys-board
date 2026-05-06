@@ -986,7 +986,11 @@ export default function Canvas({
             }
             onResize={(w, h) => onUpdateCard(card.id, { width: w, height: h })}
             onTitleChange={(t) => onUpdateCard(card.id, { title: t })}
-            onDescriptionChange={(html) => onUpdateCard(card.id, { description: { html } })}
+            onDescriptionChange={(patch) =>
+              onUpdateCard(card.id, {
+                description: { ...(card.description || {}), ...patch },
+              })
+            }
             onColorChange={(color) => onUpdateCard(card.id, { color })}
             statusOptions={statusOptions}
             assigneeOptions={assigneeOptions}
