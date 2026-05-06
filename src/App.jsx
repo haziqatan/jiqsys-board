@@ -582,6 +582,7 @@ export default function App() {
         selectedId={selectedId}
         onSelect={setSelectedId}
         onOpenDetail={setDetailId}
+        onCloseDetail={() => setDetailId(null)}
         onCreateCard={handleCreateCard}
         onUpdateCard={handleUpdateCard}
         onDeleteCard={handleDeleteCard}

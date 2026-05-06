@@ -280,6 +280,7 @@ export default function Canvas({
   selectedId,
   onSelect,
   onOpenDetail,
+  onCloseDetail,
   onCreateCard,
   onUpdateCard,
   onDeleteCard,
@@ -469,6 +470,7 @@ export default function Canvas({
       setPanning({ x: e.clientX, y: e.clientY, vx: view.x, vy: view.y })
       setSelectedConnectorId(null)
       onSelect(null)
+      onCloseDetail?.()
       return
     }
 
