@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import {
-  IconCursor, IconCard, IconText,
+  IconCursor, IconCard, IconText, IconTable,
   IconShapes, IconRectangle, IconSquare,
   IconCircle, IconDiamond, IconHexagon, IconParallelogram,
   IconTriangle, IconStar, IconArrowShape,
@@ -71,6 +71,15 @@ export default function Toolbar({ tool, setTool }) {
       >
         <IconText />
         <span className="tool-tooltip">Text <kbd>T</kbd></span>
+      </button>
+
+      <button
+        className={`tool-btn ${tool === 'card-table' ? 'active' : ''}`}
+        onClick={() => { setTool('card-table'); setPickerOpen(false) }}
+        aria-label="Table"
+      >
+        <IconTable />
+        <span className="tool-tooltip">Table</span>
       </button>
 
       <div className="shapes-wrap" ref={pickerRef}>

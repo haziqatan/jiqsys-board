@@ -394,3 +394,11 @@ export const IconTextColor = (p) => (
     <path d="M4 20h4m4 0h4M9 4l-5 16M9 4l5 16M6.5 13h7" strokeLinecap="round" />
   </svg>
 )
+
+export const IconTable = (p) => (
+  <svg {...base} {...p}>
+    <rect x="3" y="5" width="18" height="14" rx="2" {...duo} />
+    <rect x="3" y="5" width="18" height="14" rx="2" />
+    <path d="M3 10h18M3 15h18M9 5v14M15 5v14" />
+  </svg>
+)

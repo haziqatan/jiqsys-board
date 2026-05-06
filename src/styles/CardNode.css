@@ -397,6 +397,170 @@
 .card-node.selected .resize-handle { opacity: 1; }
 .resize-handle:hover { transform: scale(1.15); }
 
+/* ── Table node ───────────────────────────────────────────────────────
+   Plain editable spreadsheet inside a card. Double-click any cell to
+   edit, "+ Add row" / column "+" buttons grow the data, "×" buttons
+   on header / row edges delete. */
+.card-node.table-node {
+  background: var(--surface);
+  overflow: hidden;
+}
+.table-inner {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.cn-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  color: var(--text);
+  table-layout: fixed;
+}
+
+.cn-table-cell,
+.cn-table-add-col,
+.cn-table-row-actions,
+.cn-table-add-row {
+  border: 1px solid var(--border);
+  position: relative;
+}
+
+.cn-table-cell {
+  height: 34px;
+  padding: 0;
+  vertical-align: middle;
+  text-align: left;
+  word-break: break-word;
+  background: var(--surface);
+  cursor: text;
+}
+.cn-table-cell:hover { background: var(--surface-2); }
+
+.cn-table-th {
+  height: 36px;
+  background: var(--surface-2);
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.01em;
+}
+.cn-table-th:hover { background: var(--accent-soft); }
+
+.cn-table-cell-content {
+  padding: 6px 10px;
+  line-height: 1.4;
+  min-height: 22px;
+  /* Allow vertical text without forcing the row to grow on long words */
+  white-space: pre-wrap;
+}
+
+.cn-table-cell.editing { padding: 0; }
+.cn-table-input {
+  width: 100%;
+  height: 100%;
+  border: none;
+  outline: none;
+  padding: 6px 10px;
+  font-family: inherit;
+  font-size: inherit;
+  color: var(--text);
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+  border-radius: 0;
+}
+.cn-table-th .cn-table-input { font-weight: 600; }
+
+/* Action buttons inside the table */
+.cn-table-add-col,
+.cn-table-row-actions {
+  width: 28px;
+  background: transparent;
+  text-align: center;
+  vertical-align: middle;
+}
+.cn-table-add-col { background: var(--surface-2); }
+
+.cn-table-add-col button,
+.cn-table-row-actions button,
+.cn-table-col-delete {
+  width: 20px;
+  height: 20px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 100ms var(--ease), color 100ms var(--ease), transform 100ms var(--ease);
+}
+.cn-table-add-col button:hover,
+.cn-table-row-actions button:hover {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  transform: scale(1.06);
+}
+
+.cn-table-col-delete {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 16px;
+  height: 16px;
+  font-size: 12px;
+  opacity: 0;
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text-muted);
+}
+.cn-table-th:hover .cn-table-col-delete { opacity: 1; }
+.cn-table-col-delete:hover {
+  color: #b42318;
+  border-color: #fecdca;
+  background: #fef3f2;
+}
+
+.cn-table-row-actions button { opacity: 0; }
+.cn-table tbody tr:hover .cn-table-row-actions button { opacity: 1; }
+.cn-table-row-actions button:hover {
+  color: #b42318;
+  background: #fef3f2;
+}
+
+.cn-table-add-row {
+  border: 1px solid var(--border);
+  border-top: 1px dashed var(--border-strong);
+  background: var(--surface-2);
+  height: 30px;
+  text-align: center;
+  padding: 0;
+}
+.cn-table-add-row button {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: color 100ms var(--ease), background 100ms var(--ease);
+}
+.cn-table-add-row button:hover {
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+}
+
+/* Selected card: stronger header tint + accent border */
+.card-node.table-node.selected .cn-table-th { background: var(--accent-soft); }
+
 /* ── Link-handle ghost suggestion ─────────────────────────────────────
    Shown when the user hovers a link-handle. Translucent preview of the
    same shape, with a "+" affordance, sitting where a new card would be

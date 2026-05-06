@@ -533,9 +533,21 @@ export default function Canvas({
         'card-triangle':   { node_shape: 'triangle',      w: 160, h: 140, title: '',         color: '#dbeafe' },
         'card-star':       { node_shape: 'star',          w: 160, h: 160, title: '',         color: '#fef3c7' },
         'card-arrow':      { node_shape: 'arrow',         w: 200, h: 90,  title: '',         color: '#dbeafe' },
+        'card-table':      { node_shape: 'table',         w: 320, h: 132, title: '',         color: '#ffffff' },
       }
       const { node_shape, w, h, title, color } = shapeMap[tool] || shapeMap['card']
-      onCreateCard(x - w / 2, y - h / 2, { node_shape, width: w, height: h, title, color })
+      const overrides = { node_shape, width: w, height: h, title, color }
+      // Seed the table with a default 2 × 2 schema so the rendering branch
+      // has something to display straight away.
+      if (node_shape === 'table') {
+        overrides.description = {
+          table: {
+            headers: ['Column 1', 'Column 2'],
+            rows: [['', ''], ['', '']],
+          },
+        }
+      }
+      onCreateCard(x - w / 2, y - h / 2, overrides)
       setTool('select')
     }
   }

@@ -33,7 +33,12 @@ const MIN_SIZE = {
   triangle:      { w: 130, h: 110 },
   star:          { w: 130, h: 130 },
   arrow:         { w: 160, h: 80  },
+  table:         { w: 200, h: 100 },
 }
+
+const TABLE_ROW_H = 34
+const TABLE_HEADER_H = 36
+const TABLE_FOOTER_H = 30  // height taken by the "+ Add row" footer
 
 export default function CardNode({
   card,
@@ -176,6 +181,138 @@ export default function CardNode({
       </svg>
     </div>
   )
+
+  // ── TABLE NODE ───────────────────────────────────────────────────────
+  if (nodeShape === 'table') {
+    const tableData = card.description?.table || {
+      headers: ['Column 1', 'Column 2'],
+      rows: [['', ''], ['', '']],
+    }
+    const headers = tableData.headers || []
+    const rows    = tableData.rows    || []
+
+    const commitTable = (next) => onDescriptionChange({ table: next })
+
+    const addColumn = () => {
+      const nextHeaders = [...headers, `Column ${headers.length + 1}`]
+      const nextRows    = rows.map((r) => [...r, ''])
+      commitTable({ headers: nextHeaders, rows: nextRows })
+      // Grow card width so the new column has room.
+      onResize(card.width + 120, card.height)
+    }
+
+    const addRow = () => {
+      const nextRows = [...rows, headers.map(() => '')]
+      commitTable({ headers, rows: nextRows })
+      onResize(card.width, card.height + TABLE_ROW_H)
+    }
+
+    const updateHeader = (cIdx, value) => {
+      commitTable({
+        headers: headers.map((h, i) => (i === cIdx ? value : h)),
+        rows,
+      })
+    }
+    const updateCell = (rIdx, cIdx, value) => {
+      commitTable({
+        headers,
+        rows: rows.map((r, i) =>
+          i === rIdx ? r.map((c, j) => (j === cIdx ? value : c)) : r,
+        ),
+      })
+    }
+    const removeColumn = (cIdx) => {
+      if (headers.length <= 1) return
+      commitTable({
+        headers: headers.filter((_, i) => i !== cIdx),
+        rows: rows.map((r) => r.filter((_, i) => i !== cIdx)),
+      })
+      onResize(Math.max(MIN_SIZE.table.w, card.width - 120), card.height)
+    }
+    const removeRow = (rIdx) => {
+      if (rows.length <= 1) return
+      commitTable({ headers, rows: rows.filter((_, i) => i !== rIdx) })
+      onResize(card.width, Math.max(MIN_SIZE.table.h, card.height - TABLE_ROW_H))
+    }
+
+    return (
+      <div
+        className={`card-node table-node${selected ? ' selected' : ''}${linkTarget ? ' link-target' : ''}${searchPulse ? ' search-pulse' : ''}${ghost ? ' ghost-node' : ''}`}
+        style={{ left: card.x, top: card.y, width: card.width, height: card.height }}
+        onMouseDown={onMouseDown}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+      >
+        <div className="card-inner table-inner">
+          <table className="cn-table">
+            <colgroup>
+              {headers.map((_, i) => (
+                <col key={i} style={{ width: `calc((100% - 28px) / ${headers.length})` }} />
+              ))}
+              <col style={{ width: '28px' }} />
+            </colgroup>
+            <thead>
+              <tr>
+                {headers.map((h, i) => (
+                  <TableEditCell
+                    key={`h-${i}`}
+                    isHeader
+                    value={h}
+                    onCommit={(v) => updateHeader(i, v)}
+                    onDelete={headers.length > 1 ? () => removeColumn(i) : null}
+                  />
+                ))}
+                <th className="cn-table-add-col">
+                  <button
+                    type="button"
+                    title="Add column"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => { e.stopPropagation(); addColumn() }}
+                  >+</button>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, rIdx) => (
+                <tr key={`r-${rIdx}`}>
+                  {row.map((cell, cIdx) => (
+                    <TableEditCell
+                      key={`c-${rIdx}-${cIdx}`}
+                      value={cell}
+                      onCommit={(v) => updateCell(rIdx, cIdx, v)}
+                    />
+                  ))}
+                  <td className="cn-table-row-actions">
+                    {rows.length > 1 && (
+                      <button
+                        type="button"
+                        title="Delete row"
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={(e) => { e.stopPropagation(); removeRow(rIdx) }}
+                      >×</button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colSpan={headers.length + 1} className="cn-table-add-row">
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => { e.stopPropagation(); addRow() }}
+                  >+ Add row</button>
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        {handles}
+        {resizeHandle}
+      </div>
+    )
+  }
 
   if (nodeShape === 'image') {
     const image = card.description?.image
@@ -382,5 +519,68 @@ export default function CardNode({
       {handles}
       {resizeHandle}
     </div>
+  )
+}
+
+// ── Table cell with double-click-to-edit. Lives at file bottom so the
+//    main CardNode component stays focused on layout. Uses a draft buffer
+//    while editing so partial typing doesn't fire a write per keystroke
+//    upstream — we only commit on blur / Enter.
+function TableEditCell({ value, onCommit, onDelete, isHeader }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(value)
+  const inputRef = useRef(null)
+
+  useEffect(() => { if (!editing) setDraft(value) }, [value, editing])
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus()
+      inputRef.current.select()
+    }
+  }, [editing])
+
+  const commit = () => {
+    setEditing(false)
+    if (draft !== value) onCommit(draft)
+  }
+
+  const Tag = isHeader ? 'th' : 'td'
+
+  if (editing) {
+    return (
+      <Tag className={`cn-table-cell${isHeader ? ' cn-table-th' : ''} editing`}>
+        <input
+          ref={inputRef}
+          className="cn-table-input"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') { e.preventDefault(); commit() }
+            if (e.key === 'Escape') { setDraft(value); setEditing(false) }
+            if (e.key === 'Tab') { e.preventDefault(); commit() }
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+        />
+      </Tag>
+    )
+  }
+
+  return (
+    <Tag
+      className={`cn-table-cell${isHeader ? ' cn-table-th' : ''}`}
+      onDoubleClick={(e) => { e.stopPropagation(); setEditing(true) }}
+    >
+      <div className="cn-table-cell-content">{value || (isHeader ? '' : '')}</div>
+      {isHeader && onDelete && (
+        <button
+          type="button"
+          className="cn-table-col-delete"
+          title="Delete column"
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); onDelete() }}
+        >×</button>
+      )}
+    </Tag>
   )
 }
