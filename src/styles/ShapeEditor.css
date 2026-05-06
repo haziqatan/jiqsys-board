@@ -75,6 +75,34 @@
 .sfb-select:hover { background: var(--surface-2); }
 .sfb-select:focus { border-color: var(--accent); }
 
+/* Text-color button: icon + underline swatch */
+.sfb-text-color-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  color: var(--text-muted);
+  transition: background 100ms var(--ease), color 100ms var(--ease);
+  margin: 0 1px;
+}
+.sfb-text-color-btn:hover { background: var(--surface-2); color: var(--text); }
+/* Colored underline stripe below the icon */
+.sfb-text-color-btn::after {
+  content: '';
+  position: absolute;
+  bottom: 3px;
+  left: 5px;
+  right: 5px;
+  height: 2.5px;
+  border-radius: 2px;
+  background: var(--tc, #000);
+}
+
 .sfb-divider {
   width: 1px;
   height: 16px;
@@ -105,7 +133,7 @@
   font-weight: 500;
   color: var(--text);
   line-height: 1.5;
-  text-align: center;
+  text-align: center; /* default for shapes — overridden per-paragraph by TextAlign */
   word-break: break-word;
   padding: 6px 0;
 }
@@ -173,7 +201,8 @@
   pointer-events: none;
 }
 
-.shape-label-rich > * { max-width: 100%; }
+/* Give direct children full width so text-align is honoured */
+.shape-label-rich > * { max-width: 100%; width: 100%; }
 
 .shape-label-rich p { margin: 0 0 4px; font-size: 14px; font-weight: 500; color: var(--text); line-height: 1.5; }
 .shape-label-rich p:last-child { margin-bottom: 0; }

@@ -7,11 +7,15 @@ import Underline from '@tiptap/extension-underline'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import { TextStyle, FontSize } from '@tiptap/extension-text-style'
+import Color from '@tiptap/extension-color'
+import TextAlign from '@tiptap/extension-text-align'
 import { useEffect, useRef, useState } from 'react'
 import {
   IconBold, IconItalic, IconStrike,
   IconList, IconListNumbered, IconCheck,
   IconLink, IconImage, IconClose,
+  IconAlignLeft, IconAlignCenter, IconAlignRight,
+  IconTextColor,
 } from './Icons'
 import '../styles/ShapeEditor.css'
 
@@ -26,6 +30,7 @@ export default function ShapeEditorInner({
   anchorEl,
 }) {
   const colorInputRef = useRef(null)
+  const textColorInputRef = useRef(null)
   const [barPos, setBarPos] = useState({ x: 0, y: 0 })
 
   const editor = useEditor({
@@ -41,6 +46,8 @@ export default function ShapeEditorInner({
       TaskItem.configure({ nested: true }),
       TextStyle,
       FontSize,
+      Color,
+      TextAlign.configure({ types: ['heading', 'paragraph'] }),
     ],
     content: initialContent || '<p></p>',
     onUpdate: ({ editor: ed }) => onUpdate(ed.getHTML()),
@@ -87,6 +94,7 @@ export default function ShapeEditorInner({
   }
 
   const curFontSize = editor?.getAttributes('textStyle')?.fontSize?.replace('px', '') ?? ''
+  const curTextColor = editor?.getAttributes('textStyle')?.color ?? '#000000'
 
   if (!editor) return null
 
@@ -131,6 +139,48 @@ export default function ShapeEditorInner({
           <option key={s} value={s}>{s}</option>
         ))}
       </select>
+
+      {/* Text color */}
+      <button
+        className="sfb-text-color-btn"
+        title="Text color"
+        style={{ '--tc': curTextColor }}
+        onClick={() => textColorInputRef.current?.click()}
+      >
+        <IconTextColor width={14} height={14} />
+      </button>
+      <input
+        ref={textColorInputRef}
+        type="color"
+        value={curTextColor}
+        style={{ display: 'none' }}
+        onChange={(e) => editor.chain().focus().setColor(e.target.value).run()}
+      />
+
+      <div className="sfb-divider" />
+
+      {/* Text alignment */}
+      <FmtBtn
+        active={editor.isActive({ textAlign: 'left' })}
+        title="Align left"
+        onClick={() => editor.chain().focus().setTextAlign('left').run()}
+      >
+        <IconAlignLeft width={14} height={14} />
+      </FmtBtn>
+      <FmtBtn
+        active={editor.isActive({ textAlign: 'center' })}
+        title="Align center"
+        onClick={() => editor.chain().focus().setTextAlign('center').run()}
+      >
+        <IconAlignCenter width={14} height={14} />
+      </FmtBtn>
+      <FmtBtn
+        active={editor.isActive({ textAlign: 'right' })}
+        title="Align right"
+        onClick={() => editor.chain().focus().setTextAlign('right').run()}
+      >
+        <IconAlignRight width={14} height={14} />
+      </FmtBtn>
 
       <div className="sfb-divider" />
 

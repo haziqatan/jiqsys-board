@@ -370,3 +370,27 @@ export const IconChevronRight = (p) => (
     <path d="M10 6l6 6-6 6" />
   </svg>
 )
+
+export const IconAlignLeft = (p) => (
+  <svg {...base} {...p}>
+    <path d="M3 6h18M3 12h12M3 18h15" />
+  </svg>
+)
+
+export const IconAlignCenter = (p) => (
+  <svg {...base} {...p}>
+    <path d="M3 6h18M6 12h12M4.5 18h15" />
+  </svg>
+)
+
+export const IconAlignRight = (p) => (
+  <svg {...base} {...p}>
+    <path d="M3 6h18M9 12h12M6 18h15" />
+  </svg>
+)
+
+export const IconTextColor = (p) => (
+  <svg {...base} {...p}>
+    <path d="M4 20h4m4 0h4M9 4l-5 16M9 4l5 16M6.5 13h7" strokeLinecap="round" />
+  </svg>
+)
