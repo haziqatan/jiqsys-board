@@ -414,6 +414,10 @@
 
 .cn-table {
   width: 100%;
+  /* Fill the table-inner so body rows distribute available vertical
+     space when the user resizes the card taller. Header & footer stay
+     fixed; tbody soaks up the rest. */
+  height: 100%;
   border-collapse: collapse;
   font-size: 12.5px;
   color: var(--text);
@@ -429,9 +433,11 @@
 }
 
 .cn-table-cell {
-  height: 34px;
+  /* No fixed height — let table layout distribute available space among
+     body rows. The inner .cn-table-cell-content provides the min height
+     for empty cells via padding. */
   padding: 0;
-  vertical-align: middle;
+  vertical-align: top;
   text-align: left;
   word-break: break-word;
   background: var(--surface);
@@ -440,6 +446,7 @@
 .cn-table-cell:hover { background: var(--surface-2); }
 
 .cn-table-th {
+  /* Header keeps a fixed compact height regardless of card size */
   height: 36px;
   background: var(--surface-2);
   font-weight: 600;
@@ -452,14 +459,20 @@
   padding: 6px 10px;
   line-height: 1.4;
   min-height: 22px;
-  /* Allow vertical text without forcing the row to grow on long words */
+  /* Preserve newlines from multi-line edits (Enter inserts <br>/<div>) */
   white-space: pre-wrap;
 }
+.cn-table-cell-content b,
+.cn-table-cell-content strong { font-weight: 700; }
+.cn-table-cell-content i,
+.cn-table-cell-content em     { font-style: italic; }
+.cn-table-cell-content u      { text-decoration: underline; }
 
 .cn-table-cell.editing { padding: 0; }
 .cn-table-input {
+  display: block;
   width: 100%;
-  height: 100%;
+  min-height: 100%;
   border: none;
   outline: none;
   padding: 6px 10px;
@@ -469,8 +482,58 @@
   background: var(--accent-soft);
   box-shadow: inset 0 0 0 1.5px var(--accent);
   border-radius: 0;
+  /* Preserve user-typed newlines visually */
+  white-space: pre-wrap;
+  word-break: break-word;
+  cursor: text;
 }
 .cn-table-th .cn-table-input { font-weight: 600; }
+.cn-table-input b,
+.cn-table-input strong { font-weight: 700; }
+.cn-table-input i,
+.cn-table-input em     { font-style: italic; }
+.cn-table-input u      { text-decoration: underline; }
+
+/* ── Inline cell formatting toolbar ── */
+.cn-cell-toolbar {
+  position: absolute;
+  top: -28px;
+  left: 0;
+  display: inline-flex;
+  gap: 1px;
+  padding: 3px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(15, 20, 35, 0.14);
+  z-index: 12;
+  user-select: none;
+  animation: cn-tb-in 120ms var(--ease);
+}
+@keyframes cn-tb-in {
+  from { opacity: 0; transform: translateY(2px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.cn-cell-toolbar button {
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 100ms var(--ease), color 100ms var(--ease);
+}
+.cn-cell-toolbar button:hover {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
 
 /* Action buttons inside the table */
 .cn-table-add-col,

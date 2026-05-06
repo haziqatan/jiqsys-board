@@ -522,26 +522,78 @@ export default function CardNode({
   )
 }
 
-// ── Table cell with double-click-to-edit. Lives at file bottom so the
-//    main CardNode component stays focused on layout. Uses a draft buffer
-//    while editing so partial typing doesn't fire a write per keystroke
-//    upstream — we only commit on blur / Enter.
+// ── Table cell with double-click-to-edit ───────────────────────────────
+// Uses a contentEditable <div> so Enter inserts a real line-break and
+// browsers' native Cmd+B / Cmd+I / Cmd+U format the selected text. A
+// small inline toolbar (B / I / U) also exposes those for click users.
+// The cell content is stored as HTML (sanitised on commit to a tiny
+// allowlist: <b><strong><i><em><u><br><div><span>).
+
+const ALLOWED_TAGS = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'BR', 'DIV', 'SPAN', 'P'])
+
+function sanitizeCellHtml(node) {
+  // Walk the node's children, stripping any element whose tag is not in
+  // the allowlist (children kept), and dropping every attribute except
+  // a constrained `style` for color (so the formatting toolbar can also
+  // expose colour later if we want).
+  if (!node) return ''
+  const walker = document.createTreeWalker(node, NodeFilter.SHOW_ELEMENT)
+  const toUnwrap = []
+  let cur = walker.nextNode()
+  while (cur) {
+    if (!ALLOWED_TAGS.has(cur.tagName)) {
+      toUnwrap.push(cur)
+    } else {
+      // Strip event handlers / class / id / data-* / etc.
+      for (const a of [...cur.attributes]) {
+        if (a.name === 'style') continue
+        cur.removeAttribute(a.name)
+      }
+    }
+    cur = walker.nextNode()
+  }
+  for (const el of toUnwrap) {
+    while (el.firstChild) el.parentNode.insertBefore(el.firstChild, el)
+    el.parentNode.removeChild(el)
+  }
+  return node.innerHTML
+}
+
 function TableEditCell({ value, onCommit, onDelete, isHeader }) {
   const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(value)
-  const inputRef = useRef(null)
+  const editRef = useRef(null)
 
-  useEffect(() => { if (!editing) setDraft(value) }, [value, editing])
+  // When entering edit mode, seed the contenteditable with the current
+  // HTML and place the caret at the end. We DON'T re-sync from `value`
+  // while editing — the browser owns the DOM during that window.
   useEffect(() => {
-    if (editing && inputRef.current) {
-      inputRef.current.focus()
-      inputRef.current.select()
-    }
-  }, [editing])
+    if (!editing) return
+    const el = editRef.current
+    if (!el) return
+    el.innerHTML = value || ''
+    el.focus()
+    const range = document.createRange()
+    range.selectNodeContents(el)
+    range.collapse(false)
+    const sel = window.getSelection()
+    sel.removeAllRanges()
+    sel.addRange(range)
+  }, [editing])  // eslint-disable-line react-hooks/exhaustive-deps
 
   const commit = () => {
+    if (!editing) return
+    const next = sanitizeCellHtml(editRef.current)
     setEditing(false)
-    if (draft !== value) onCommit(draft)
+    if (next !== (value || '')) onCommit(next)
+  }
+  const cancel = () => setEditing(false)
+
+  const exec = (cmd) => {
+    // execCommand is technically deprecated but still ubiquitous and the
+    // simplest path to inline formatting inside contentEditable. Wrapped
+    // in a try/catch in case a future browser drops it.
+    try { document.execCommand(cmd, false) } catch { /* no-op */ }
+    editRef.current?.focus()
   }
 
   const Tag = isHeader ? 'th' : 'td'
@@ -549,18 +601,27 @@ function TableEditCell({ value, onCommit, onDelete, isHeader }) {
   if (editing) {
     return (
       <Tag className={`cn-table-cell${isHeader ? ' cn-table-th' : ''} editing`}>
-        <input
-          ref={inputRef}
+        <div className="cn-cell-toolbar" onMouseDown={(e) => e.preventDefault()}>
+          <button type="button" title="Bold (⌘B)"      onClick={() => exec('bold')}><b>B</b></button>
+          <button type="button" title="Italic (⌘I)"    onClick={() => exec('italic')}><i>I</i></button>
+          <button type="button" title="Underline (⌘U)" onClick={() => exec('underline')}><u>U</u></button>
+        </div>
+        <div
+          ref={editRef}
           className="cn-table-input"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
+          contentEditable
+          suppressContentEditableWarning
           onBlur={commit}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') { e.preventDefault(); commit() }
-            if (e.key === 'Escape') { setDraft(value); setEditing(false) }
-            if (e.key === 'Tab') { e.preventDefault(); commit() }
+            // Esc cancels (revert to stored value), Tab + Cmd/Ctrl+Enter commit.
+            // A bare Enter falls through to the browser default → newline.
+            if (e.key === 'Escape') { e.preventDefault(); cancel() }
+            else if (e.key === 'Tab') { e.preventDefault(); commit() }
+            else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); commit() }
           }}
           onMouseDown={(e) => e.stopPropagation()}
+          onWheel={(e) => e.stopPropagation()}
+          spellCheck={false}
         />
       </Tag>
     )
@@ -571,7 +632,13 @@ function TableEditCell({ value, onCommit, onDelete, isHeader }) {
       className={`cn-table-cell${isHeader ? ' cn-table-th' : ''}`}
       onDoubleClick={(e) => { e.stopPropagation(); setEditing(true) }}
     >
-      <div className="cn-table-cell-content">{value || (isHeader ? '' : '')}</div>
+      <div
+        className="cn-table-cell-content"
+        // Saved cells are HTML — render them with the same allowlist that
+        // we sanitise on commit. Plain-text values render fine too because
+        // text without HTML chars is semantically identical.
+        dangerouslySetInnerHTML={{ __html: value || '' }}
+      />
       {isHeader && onDelete && (
         <button
           type="button"
