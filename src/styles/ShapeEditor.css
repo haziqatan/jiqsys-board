@@ -123,14 +123,23 @@
   justify-content: center;
   z-index: 2;
   pointer-events: all;
-  overflow: hidden;
+  /* Do NOT set overflow:hidden here — it kills inner scroll and clips the
+     scrollbar thumb.  The shape's own clip-path/border-radius already masks
+     visual overflow on the card node level. */
+  overflow: visible;
 }
 
 .shape-editor-content .ProseMirror {
   outline: none;
   width: 78%;
-  max-height: 80%;
+  /* Use a fixed pixel-based max-height so the scroll viewport is reliable.
+     Percentages on flex children can misbehave when the parent has no
+     explicit height in some browsers. The --shape-h custom property is set
+     inline by Canvas from the card's height; fall back to 200 px. */
+  max-height: calc(var(--shape-editor-h, 200px) * 0.78);
   overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;   /* stop wheel events leaking to canvas */
   background: transparent;
   font-size: 14px;
   font-weight: 500;
@@ -138,7 +147,10 @@
   line-height: 1.5;
   text-align: center; /* default for shapes — overridden per-paragraph by TextAlign */
   word-break: break-word;
-  padding: 6px 0;
+  padding: 6px 4px;
+  /* Thin scrollbar so it doesn't look out of place inside a shape */
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
 }
 
 /* Shape-specific widths matching old textarea widths */

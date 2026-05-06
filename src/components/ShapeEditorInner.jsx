@@ -250,16 +250,27 @@ export default function ShapeEditorInner({
     </div>
   )
 
+  // Expose card height as a CSS custom property so ProseMirror's max-height
+  // calc() resolves to a real pixel value (percentage max-height on flex
+  // children is unreliable across browsers).
+  const shapeH = anchorEl ? anchorEl.offsetHeight : 0
+
   return (
     <>
       <div ref={editorWrapRef} style={{ position: 'absolute', inset: 0, display: 'contents' }}>
         <EditorContent
           editor={editor}
           className="shape-editor-content"
+          style={shapeH ? { '--shape-editor-h': `${shapeH}px` } : undefined}
           onKeyDown={(e) => {
             if (e.key === 'Escape') { e.stopPropagation(); onClose() }
           }}
           onMouseDown={(e) => e.stopPropagation()}
+          onWheel={(e) => {
+            // Prevent the canvas from intercepting scroll events while the
+            // user is scrolling inside the editor.
+            e.stopPropagation()
+          }}
         />
       </div>
       {createPortal(bar, document.body)}
