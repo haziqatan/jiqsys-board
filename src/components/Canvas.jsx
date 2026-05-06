@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import CardNode from './CardNode'
-import Connector, { pickAnchor, rectCenter, getPathSegments } from './Connector'
+import Connector, { pickAnchor, rectCenter, getPathSegmentsWithWaypoints } from './Connector'
 import ConnectorToolbar from './ConnectorToolbar'
 import { IconPlus, IconMinus, IconHome } from './Icons'
 import '../styles/Canvas.css'
@@ -327,7 +327,7 @@ export default function Canvas({
       const tAnchor = pickAnchor(tgt, rectCenter(src), conn.target_side)
       const S = { ...sAnchor, x: sAnchor.x + WORLD_OFFSET, y: sAnchor.y + WORLD_OFFSET }
       const T = { ...tAnchor, x: tAnchor.x + WORLD_OFFSET, y: tAnchor.y + WORLD_OFFSET }
-      const segs = getPathSegments(S, T, shape)
+      const segs = getPathSegmentsWithWaypoints(S, T, shape, conn.waypoints || [], { x: WORLD_OFFSET, y: WORLD_OFFSET })
       map[conn.id] = segs.map(([a, b]) => ({ a, b }))
     }
     return map
@@ -734,6 +734,9 @@ export default function Canvas({
                   setSelectedConnectorId(conn.id)
                   onSelect(null)
                 }}
+                onUpdateWaypoints={(waypoints) =>
+                  onUpdateConnector(conn.id, { waypoints })
+                }
               />
             )
           })}

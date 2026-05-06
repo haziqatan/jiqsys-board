@@ -1,10 +1,12 @@
-import { useId } from 'react'
+import { useEffect, useId, useState } from 'react'
 
-function rectCenter(r) {
+// ── Pure geometry helpers ────────────────────────────────────────────────────
+
+export function rectCenter(r) {
   return { x: r.x + r.width / 2, y: r.y + r.height / 2 }
 }
 
-function pickAnchor(rect, otherCenter, forcedSide) {
+export function pickAnchor(rect, otherCenter, forcedSide) {
   const c = rectCenter(rect)
   let side = forcedSide
   if (!side) {
@@ -17,15 +19,11 @@ function pickAnchor(rect, otherCenter, forcedSide) {
     }
   }
   switch (side) {
-    case 'right':
-      return { x: rect.x + rect.width, y: c.y, side }
-    case 'left':
-      return { x: rect.x, y: c.y, side }
-    case 'top':
-      return { x: c.x, y: rect.y, side }
+    case 'right':  return { x: rect.x + rect.width, y: c.y, side }
+    case 'left':   return { x: rect.x, y: c.y, side }
+    case 'top':    return { x: c.x, y: rect.y, side }
     case 'bottom':
-    default:
-      return { x: c.x, y: rect.y + rect.height, side: 'bottom' }
+    default:       return { x: c.x, y: rect.y + rect.height, side: 'bottom' }
   }
 }
 
@@ -33,47 +31,81 @@ function isHorizontal(side) {
   return side === 'left' || side === 'right'
 }
 
-// Returns an array of [from, to] line segments tracing the connector's path.
-// Used for both rendering and line-jump intersection tests.
-function getPathSegments(s, t, shape) {
+// ── Path segment builders ────────────────────────────────────────────────────
+
+/**
+ * Returns [[from, to], …] segments for the connector's default auto-routing.
+ * Exported for use in Canvas.jsx's line-jump intersection tests.
+ */
+export function getPathSegments(s, t, shape) {
   if (shape === 'straight') return [[s, t]]
-  if (shape === 'rounded') return getPathSegments(s, t, 'orthogonal')
+  if (shape === 'rounded')  return getPathSegments(s, t, 'orthogonal')
   if (shape === 'orthogonal') {
     const sH = isHorizontal(s.side)
     const tH = isHorizontal(t.side)
     if (sH && tH) {
       const midX = (s.x + t.x) / 2
       return [
-        [s, { x: midX, y: s.y }],
-        [{ x: midX, y: s.y }, { x: midX, y: t.y }],
-        [{ x: midX, y: t.y }, t],
+        [s,                     { x: midX, y: s.y }],
+        [{ x: midX, y: s.y },  { x: midX, y: t.y }],
+        [{ x: midX, y: t.y },  t],
       ]
     }
     if (!sH && !tH) {
       const midY = (s.y + t.y) / 2
       return [
-        [s, { x: s.x, y: midY }],
-        [{ x: s.x, y: midY }, { x: t.x, y: midY }],
-        [{ x: t.x, y: midY }, t],
+        [s,                     { x: s.x, y: midY }],
+        [{ x: s.x, y: midY },  { x: t.x, y: midY }],
+        [{ x: t.x, y: midY },  t],
       ]
     }
-    if (sH && !tH) {
-      return [
-        [s, { x: t.x, y: s.y }],
-        [{ x: t.x, y: s.y }, t],
-      ]
-    }
-    return [
-      [s, { x: s.x, y: t.y }],
-      [{ x: s.x, y: t.y }, t],
-    ]
+    if (sH && !tH) return [[s, { x: t.x, y: s.y }], [{ x: t.x, y: s.y }, t]]
+    return [[s, { x: s.x, y: t.y }], [{ x: s.x, y: t.y }, t]]
   }
   return []
 }
 
-function roundedPath(s, t) {
-  const segs = getPathSegments(s, t, 'orthogonal')
-  if (!segs.length) return `M ${s.x} ${s.y} L ${t.x} ${t.y}`
+/**
+ * Like getPathSegments but respects stored waypoints (world coords).
+ * S and T must already be in SVG offset-coordinate space.
+ * offset = { x: WORLD_OFFSET, y: WORLD_OFFSET } is applied to waypoints.
+ */
+export function getPathSegmentsWithWaypoints(S, T, shape, waypoints, offset = { x: 0, y: 0 }) {
+  if (!waypoints?.length) return getPathSegments(S, T, shape)
+
+  if (shape === 'straight') {
+    const pts = [S, ...waypoints.map((wp) => ({ x: wp.x + offset.x, y: wp.y + offset.y })), T]
+    return pts.slice(0, -1).map((p, i) => [p, pts[i + 1]])
+  }
+
+  if (shape === 'orthogonal' || shape === 'rounded') {
+    const sH = isHorizontal(S.side)
+    const tH = isHorizontal(T.side)
+    if (sH && tH && waypoints[0] != null) {
+      const midX = waypoints[0].x + offset.x
+      return [
+        [S,                     { x: midX, y: S.y }],
+        [{ x: midX, y: S.y },  { x: midX, y: T.y }],
+        [{ x: midX, y: T.y },  T],
+      ]
+    }
+    if (!sH && !tH && waypoints[0] != null) {
+      const midY = waypoints[0].y + offset.y
+      return [
+        [S,                     { x: S.x, y: midY }],
+        [{ x: S.x, y: midY },  { x: T.x, y: midY }],
+        [{ x: T.x, y: midY },  T],
+      ]
+    }
+  }
+
+  return getPathSegments(S, T, shape)
+}
+
+// ── Path string builders ─────────────────────────────────────────────────────
+
+function buildRoundedPathFromSegs(segs) {
+  if (!segs.length) return ''
   const R = 14
   const pts = [segs[0][0], ...segs.map(([, b]) => b)]
   let d = `M ${pts[0].x} ${pts[0].y}`
@@ -100,18 +132,36 @@ function roundedPath(s, t) {
   return d
 }
 
-function curvedPath(s, t) {
-  const sH = isHorizontal(s.side)
-  const tH = isHorizontal(t.side)
-  const dist = Math.max(40, Math.hypot(t.x - s.x, t.y - s.y) * 0.4)
-  const c1 = sH
-    ? { x: s.x + (s.side === 'right' ? dist : -dist), y: s.y }
-    : { x: s.x, y: s.y + (s.side === 'bottom' ? dist : -dist) }
-  const c2 = tH
-    ? { x: t.x + (t.side === 'right' ? dist : -dist), y: t.y }
-    : { x: t.x, y: t.y + (t.side === 'bottom' ? dist : -dist) }
-  return `M ${s.x} ${s.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${t.x} ${t.y}`
+function roundedPath(S, T, waypoints, offset) {
+  const segs = getPathSegmentsWithWaypoints(S, T, 'orthogonal', waypoints, offset)
+  return buildRoundedPathFromSegs(segs)
 }
+
+function curvedPath(S, T, waypoints, offset) {
+  const sH = isHorizontal(S.side)
+  const tH = isHorizontal(T.side)
+  const dist = Math.max(40, Math.hypot(T.x - S.x, T.y - S.y) * 0.4)
+
+  let c1, c2
+  if (waypoints?.[0] != null) {
+    c1 = { x: waypoints[0].x + offset.x, y: waypoints[0].y + offset.y }
+  } else {
+    c1 = sH
+      ? { x: S.x + (S.side === 'right' ? dist : -dist), y: S.y }
+      : { x: S.x, y: S.y + (S.side === 'bottom' ? dist : -dist) }
+  }
+  if (waypoints?.[1] != null) {
+    c2 = { x: waypoints[1].x + offset.x, y: waypoints[1].y + offset.y }
+  } else {
+    c2 = tH
+      ? { x: T.x + (T.side === 'right' ? dist : -dist), y: T.y }
+      : { x: T.x, y: T.y + (T.side === 'bottom' ? dist : -dist) }
+  }
+
+  return `M ${S.x} ${S.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${T.x} ${T.y}`
+}
+
+// ── Line-jump helpers ────────────────────────────────────────────────────────
 
 function segmentIntersect(p1, p2, p3, p4) {
   const x1 = p1.x, y1 = p1.y, x2 = p2.x, y2 = p2.y
@@ -130,29 +180,17 @@ function buildPathWithJumps(segments, otherSegments, radius = 6) {
   if (!segments.length) return ''
   let d = `M ${segments[0][0].x} ${segments[0][0].y}`
   for (const [a, b] of segments) {
-    if (!otherSegments?.length) {
-      d += ` L ${b.x} ${b.y}`
-      continue
-    }
+    if (!otherSegments?.length) { d += ` L ${b.x} ${b.y}`; continue }
     const intersections = []
     for (const seg of otherSegments) {
       const p = segmentIntersect(a, b, seg.a, seg.b)
       if (p) intersections.push(p)
     }
-    if (!intersections.length) {
-      d += ` L ${b.x} ${b.y}`
-      continue
-    }
-    const dx = b.x - a.x
-    const dy = b.y - a.y
+    if (!intersections.length) { d += ` L ${b.x} ${b.y}`; continue }
+    const dx = b.x - a.x, dy = b.y - a.y
     const len = Math.hypot(dx, dy)
-    if (len < radius * 2.5) {
-      d += ` L ${b.x} ${b.y}`
-      continue
-    }
-    const ux = dx / len
-    const uy = dy / len
-    // Filter out crossings too close to segment endpoints
+    if (len < radius * 2.5) { d += ` L ${b.x} ${b.y}`; continue }
+    const ux = dx / len, uy = dy / len
     const filtered = intersections.filter((p) => {
       const tt = (p.x - a.x) * ux + (p.y - a.y) * uy
       return tt > radius * 1.2 && tt < len - radius * 1.2
@@ -164,7 +202,7 @@ function buildPathWithJumps(segments, otherSegments, radius = 6) {
     })
     for (const p of filtered) {
       const before = { x: p.x - ux * radius, y: p.y - uy * radius }
-      const after = { x: p.x + ux * radius, y: p.y + uy * radius }
+      const after  = { x: p.x + ux * radius, y: p.y + uy * radius }
       d += ` L ${before.x} ${before.y}`
       d += ` A ${radius} ${radius} 0 0 1 ${after.x} ${after.y}`
     }
@@ -186,6 +224,92 @@ function dashArray(style, thickness) {
   return undefined
 }
 
+// ── Bone computation ─────────────────────────────────────────────────────────
+//
+// Each bone describes a draggable control point. Fields:
+//   svgX / svgY      – position in SVG coordinate space (offset-corrected)
+//   worldX / worldY  – position in world space (what gets stored in DB)
+//   constraint       – 'both' | 'x' (drag only horizontal) | 'y' (drag only vertical)
+//   waypointIndex    – index into conn.waypoints[]
+//   isVirtual        – true when no waypoint is stored yet (shown at default pos)
+
+function getBoneInfos(S, T, shape, waypoints, offset) {
+  const bones = []
+
+  // ── Straight ──────────────────────────────────────────────────────────────
+  if (shape === 'straight') {
+    if (waypoints?.length) {
+      for (let i = 0; i < waypoints.length; i++) {
+        const svgX = waypoints[i].x + offset.x
+        const svgY = waypoints[i].y + offset.y
+        bones.push({ svgX, svgY, worldX: waypoints[i].x, worldY: waypoints[i].y, constraint: 'both', waypointIndex: i, isVirtual: false })
+      }
+    } else {
+      // Virtual: midpoint of the line
+      const svgX = (S.x + T.x) / 2
+      const svgY = (S.y + T.y) / 2
+      bones.push({ svgX, svgY, worldX: svgX - offset.x, worldY: svgY - offset.y, constraint: 'both', waypointIndex: 0, isVirtual: true })
+    }
+    return bones
+  }
+
+  // ── Orthogonal / Rounded ──────────────────────────────────────────────────
+  if (shape === 'orthogonal' || shape === 'rounded') {
+    const sH = isHorizontal(S.side)
+    const tH = isHorizontal(T.side)
+
+    if (sH && tH) {
+      // 3-segment path; bone sits on the middle vertical segment (drag X-axis)
+      const midX  = waypoints?.[0] != null ? waypoints[0].x + offset.x : (S.x + T.x) / 2
+      const svgY  = (S.y + T.y) / 2   // vertical midpoint of the middle segment
+      bones.push({
+        svgX: midX, svgY,
+        worldX: midX - offset.x, worldY: svgY - offset.y,
+        constraint: 'x',
+        waypointIndex: 0,
+        isVirtual: !waypoints?.length,
+      })
+    } else if (!sH && !tH) {
+      // 3-segment path; bone sits on the middle horizontal segment (drag Y-axis)
+      const midY  = waypoints?.[0] != null ? waypoints[0].y + offset.y : (S.y + T.y) / 2
+      const svgX  = (S.x + T.x) / 2   // horizontal midpoint of the middle segment
+      bones.push({
+        svgX, svgY: midY,
+        worldX: svgX - offset.x, worldY: midY - offset.y,
+        constraint: 'y',
+        waypointIndex: 0,
+        isVirtual: !waypoints?.length,
+      })
+    }
+    // H-V and V-H cases: fixed corner — no free bone needed
+    return bones
+  }
+
+  // ── Curved ────────────────────────────────────────────────────────────────
+  if (shape === 'curved') {
+    const sH = isHorizontal(S.side)
+    const tH = isHorizontal(T.side)
+    const dist = Math.max(40, Math.hypot(T.x - S.x, T.y - S.y) * 0.4)
+
+    const defC1svgX = sH ? S.x + (S.side === 'right' ?  dist : -dist) : S.x
+    const defC1svgY = sH ? S.y                                          : S.y + (S.side === 'bottom' ? dist : -dist)
+    const defC2svgX = tH ? T.x + (T.side === 'right' ?  dist : -dist) : T.x
+    const defC2svgY = tH ? T.y                                          : T.y + (T.side === 'bottom' ? dist : -dist)
+
+    const c1x = waypoints?.[0] != null ? waypoints[0].x + offset.x : defC1svgX
+    const c1y = waypoints?.[0] != null ? waypoints[0].y + offset.y : defC1svgY
+    const c2x = waypoints?.[1] != null ? waypoints[1].x + offset.x : defC2svgX
+    const c2y = waypoints?.[1] != null ? waypoints[1].y + offset.y : defC2svgY
+
+    bones.push({ svgX: c1x, svgY: c1y, worldX: c1x - offset.x, worldY: c1y - offset.y, constraint: 'both', waypointIndex: 0, isVirtual: !waypoints?.[0] })
+    bones.push({ svgX: c2x, svgY: c2y, worldX: c2x - offset.x, worldY: c2y - offset.y, constraint: 'both', waypointIndex: 1, isVirtual: !waypoints?.[1] })
+  }
+
+  return bones
+}
+
+// ── Component ────────────────────────────────────────────────────────────────
+
 export default function Connector({
   conn,
   source,
@@ -195,10 +319,13 @@ export default function Connector({
   ghost = false,
   selected = false,
   onSelect,
+  onUpdateWaypoints,
   crossingSegments = [],
 }) {
   const uid = useId()
   const arrowId = `arrow-${uid}`
+  const [draggingBone, setDraggingBone] = useState(null)
+
   const sourceCenter = rectCenter(source)
   const targetCenter = target ? rectCenter(target) : targetPoint
   const s = pickAnchor(source, targetCenter, conn?.source_side)
@@ -209,35 +336,116 @@ export default function Connector({
   const S = { ...s, x: s.x + offset.x, y: s.y + offset.y }
   const T = { ...t, x: t.x + offset.x, y: t.y + offset.y }
 
-  const shape = conn?.shape || 'orthogonal'
-  const style = conn?.style || 'solid'
-  const thickness = conn?.thickness ?? 2
+  const shape     = conn?.shape        || 'orthogonal'
+  const style     = conn?.style        || 'solid'
+  const thickness = conn?.thickness    ?? 2
   const arrowStart = conn?.arrow_start ?? false
-  const arrowEnd = conn?.arrow_end ?? true
-  const lineJumps = conn?.line_jumps ?? true
+  const arrowEnd   = conn?.arrow_end   ?? true
+  const lineJumps  = conn?.line_jumps  ?? true
+  const waypoints  = conn?.waypoints   || []
 
+  // ── Build path string ──────────────────────────────────────────────────────
   let d
   if (shape === 'curved') {
-    d = curvedPath(S, T)
+    d = curvedPath(S, T, waypoints, offset)
   } else if (shape === 'rounded' && !ghost) {
-    d = roundedPath(S, T)
+    d = roundedPath(S, T, waypoints, offset)
   } else {
-    const segments = getPathSegments(S, T, ghost ? 'straight' : shape)
+    const effectiveWaypoints = ghost ? [] : waypoints
+    const effectiveShape     = ghost ? 'straight' : shape
+    const segments = getPathSegmentsWithWaypoints(S, T, effectiveShape, effectiveWaypoints, offset)
     d = !ghost && lineJumps
       ? buildPathWithJumps(segments, crossingSegments)
       : buildPlainPath(segments)
   }
 
-  const stroke = ghost ? '#9ca3af' : selected ? '#3b82f6' : '#1f2330'
+  // ── Bone drag ─────────────────────────────────────────────────────────────
+  // We capture the waypoints snapshot at drag-start so delta is applied
+  // against the ORIGINAL position — no stale-closure issues.
+  useEffect(() => {
+    if (!draggingBone || !onUpdateWaypoints) return
+    const {
+      boneIndex, startClientX, startClientY,
+      startWorldX, startWorldY,
+      zoom, tx, ty,
+      constraint, startWaypoints,
+    } = draggingBone
+
+    const onMove = (e) => {
+      const dx = (e.clientX - startClientX) / zoom
+      const dy = (e.clientY - startClientY) / zoom
+      const newWorldX = startWorldX + dx
+      const newWorldY = startWorldY + dy
+
+      const next = [...startWaypoints]
+      while (next.length <= boneIndex) next.push({ x: 0, y: 0 })
+
+      if (constraint === 'x') {
+        next[boneIndex] = { x: newWorldX, y: startWorldY }
+      } else if (constraint === 'y') {
+        next[boneIndex] = { x: startWorldX, y: newWorldY }
+      } else {
+        next[boneIndex] = { x: newWorldX, y: newWorldY }
+      }
+
+      onUpdateWaypoints(next)
+    }
+
+    const onUp = () => setDraggingBone(null)
+
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup',   onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup',   onUp)
+    }
+  }, [draggingBone, onUpdateWaypoints])
+
+  const handleBoneMouseDown = (e, bone) => {
+    e.stopPropagation()
+    // Read zoom + pan from the canvas-world transform matrix
+    const svgEl      = e.currentTarget.closest('svg')
+    const worldEl    = svgEl?.parentElement          // .canvas-world div
+    const containerEl = worldEl?.parentElement        // .canvas div
+    if (!worldEl || !containerEl) return
+
+    const matrix = window.getComputedStyle(worldEl).transform
+    const m = matrix.match(/matrix\(([^)]+)\)/)
+    if (!m) return
+    const parts = m[1].split(',').map(Number)
+    const zoom = parts[0]
+    const tx   = parts[4]
+    const ty   = parts[5]
+
+    setDraggingBone({
+      boneIndex:      bone.waypointIndex,
+      startClientX:   e.clientX,
+      startClientY:   e.clientY,
+      startWorldX:    bone.worldX,
+      startWorldY:    bone.worldY,
+      zoom, tx, ty,
+      constraint:     bone.constraint,
+      startWaypoints: [...waypoints],   // snapshot
+    })
+  }
+
+  // ── Bones (visible only when selected & not ghost) ────────────────────────
+  const bones = (selected && !ghost && onUpdateWaypoints)
+    ? getBoneInfos(S, T, shape, waypoints, offset)
+    : []
+
+  const boneCursor = (c) => c === 'x' ? 'ew-resize' : c === 'y' ? 'ns-resize' : 'move'
+
+  const stroke      = ghost ? '#9ca3af' : selected ? '#3b82f6' : '#1f2330'
   const strokeWidth = ghost ? 1.6 : thickness
-  const dash = dashArray(style, thickness)
+  const dash        = dashArray(style, thickness)
 
   return (
     <g
       onMouseDown={(e) => {
         if (ghost) return
         e.stopPropagation()
-        onSelect && onSelect()
+        onSelect?.()
       }}
       style={{ cursor: ghost ? 'default' : 'pointer' }}
     >
@@ -245,8 +453,7 @@ export default function Connector({
         <marker
           id={arrowId}
           viewBox="0 0 10 10"
-          refX="9"
-          refY="5"
+          refX="9" refY="5"
           markerWidth={Math.max(4, 7 - thickness * 0.4)}
           markerHeight={Math.max(4, 7 - thickness * 0.4)}
           orient="auto-start-reverse"
@@ -255,9 +462,18 @@ export default function Connector({
         </marker>
       </defs>
 
+      {/* Wide invisible hit area */}
       {!ghost && (
-        <path d={d} fill="none" stroke="transparent" strokeWidth={Math.max(14, thickness + 12)} className="connector-hit" />
+        <path
+          d={d}
+          fill="none"
+          stroke="transparent"
+          strokeWidth={Math.max(14, thickness + 12)}
+          className="connector-hit"
+        />
       )}
+
+      {/* Visible line */}
       <path
         d={d}
         fill="none"
@@ -270,9 +486,53 @@ export default function Connector({
         markerEnd={!ghost && arrowEnd ? `url(#${arrowId})` : undefined}
         className="connector-line"
       />
+
+      {/* ── Bezier guide lines (curved only) ─────────────────────────────── */}
+      {shape === 'curved' && bones.map((bone, i) => {
+        const endpoint = i === 0 ? S : T
+        return (
+          <line
+            key={`cguide-${i}`}
+            x1={endpoint.x} y1={endpoint.y}
+            x2={bone.svgX}  y2={bone.svgY}
+            stroke="#3b82f6"
+            strokeWidth={1}
+            strokeDasharray="4 3"
+            opacity={0.45}
+            pointerEvents="none"
+          />
+        )
+      })}
+
+      {/* ── Bone circles ─────────────────────────────────────────────────── */}
+      {bones.map((bone, i) => (
+        <g key={`bone-${i}`}>
+          {/* Larger transparent hit area for easy grabbing */}
+          <circle
+            cx={bone.svgX} cy={bone.svgY} r={10}
+            fill="transparent"
+            style={{ cursor: boneCursor(bone.constraint) }}
+            onMouseDown={(e) => handleBoneMouseDown(e, bone)}
+          />
+          {/* Visible handle */}
+          <circle
+            cx={bone.svgX} cy={bone.svgY} r={5}
+            fill="white"
+            stroke="#3b82f6"
+            strokeWidth={2}
+            opacity={bone.isVirtual ? 0.6 : 1}
+            style={{ cursor: boneCursor(bone.constraint), pointerEvents: 'none' }}
+          />
+          {/* Inner dot for stored bones */}
+          {!bone.isVirtual && (
+            <circle
+              cx={bone.svgX} cy={bone.svgY} r={2.5}
+              fill="#3b82f6"
+              style={{ pointerEvents: 'none' }}
+            />
+          )}
+        </g>
+      ))}
     </g>
   )
 }
-
-// eslint-disable-next-line react-refresh/only-export-components
-export { pickAnchor, rectCenter, getPathSegments }

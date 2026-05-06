@@ -72,7 +72,7 @@ export default function ConnectorToolbar({ connector, onUpdate, onDelete, screen
             key={id}
             className={`ct-btn ${shape === id ? 'active' : ''}`}
             title={label}
-            onClick={() => onUpdate({ shape: id })}
+            onClick={() => onUpdate({ shape: id, waypoints: [] })}
           >
             <Icon />
           </button>
