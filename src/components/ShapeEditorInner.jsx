@@ -29,8 +29,10 @@ export default function ShapeEditorInner({
   cardColor,
   anchorEl,
 }) {
-  const colorInputRef = useRef(null)
+  const colorInputRef    = useRef(null)
   const textColorInputRef = useRef(null)
+  const barRef           = useRef(null)
+  const editorWrapRef    = useRef(null)
   const [barPos, setBarPos] = useState({ x: 0, y: 0 })
 
   const editor = useEditor({
@@ -60,12 +62,31 @@ export default function ShapeEditorInner({
     return () => clearTimeout(id)
   }, [editor])
 
-  // Position the format bar above the anchor element once
+  // ── Track bar position with rAF so it follows the shape during pan/zoom ──
   useEffect(() => {
     if (!anchorEl) return
-    const rect = anchorEl.getBoundingClientRect()
-    setBarPos({ x: rect.left + rect.width / 2, y: rect.top - 12 })
+    let rafId
+    const update = () => {
+      const rect = anchorEl.getBoundingClientRect()
+      setBarPos({ x: rect.left + rect.width / 2, y: rect.top })
+      rafId = requestAnimationFrame(update)
+    }
+    rafId = requestAnimationFrame(update)
+    return () => cancelAnimationFrame(rafId)
   }, [anchorEl])
+
+  // ── Close when pointer-down happens outside editor + bar ──
+  useEffect(() => {
+    if (!editor) return
+    const onPointerDown = (e) => {
+      if (editorWrapRef.current?.contains(e.target)) return
+      if (barRef.current?.contains(e.target)) return
+      if (anchorEl?.contains(e.target)) return
+      onClose()
+    }
+    document.addEventListener('pointerdown', onPointerDown, true)
+    return () => document.removeEventListener('pointerdown', onPointerDown, true)
+  }, [editor, anchorEl, onClose])
 
   const promptLink = () => {
     if (!editor) return
@@ -93,18 +114,19 @@ export default function ShapeEditorInner({
     }
   }
 
-  const curFontSize = editor?.getAttributes('textStyle')?.fontSize?.replace('px', '') ?? ''
+  const curFontSize  = editor?.getAttributes('textStyle')?.fontSize?.replace('px', '') ?? ''
   const curTextColor = editor?.getAttributes('textStyle')?.color ?? '#000000'
 
   if (!editor) return null
 
   const bar = (
     <div
+      ref={barRef}
       className="shape-format-bar"
       style={{ left: barPos.x, top: barPos.y }}
       onMouseDown={(e) => e.preventDefault()}
     >
-      {/* Shape color */}
+      {/* Shape fill color */}
       <button
         className="sfb-color-btn"
         title="Shape color"
@@ -135,12 +157,10 @@ export default function ShapeEditorInner({
         }}
       >
         <option value="">–</option>
-        {FONT_SIZES.map((s) => (
-          <option key={s} value={s}>{s}</option>
-        ))}
+        {FONT_SIZES.map((s) => <option key={s} value={s}>{s}</option>)}
       </select>
 
-      {/* Text color */}
+      {/* Text (foreground) color */}
       <button
         className="sfb-text-color-btn"
         title="Text color"
@@ -185,73 +205,40 @@ export default function ShapeEditorInner({
       <div className="sfb-divider" />
 
       {/* Bold / Italic / Strike */}
-      <FmtBtn
-        active={editor.isActive('bold')}
-        title="Bold (⌘B)"
-        onClick={() => editor.chain().focus().toggleBold().run()}
-      >
-        <IconBold width={14} height={14} />
+      <FmtBtn active={editor.isActive('bold')}   title="Bold (⌘B)"      onClick={() => editor.chain().focus().toggleBold().run()}>
+        <IconBold   width={14} height={14} />
       </FmtBtn>
-      <FmtBtn
-        active={editor.isActive('italic')}
-        title="Italic (⌘I)"
-        onClick={() => editor.chain().focus().toggleItalic().run()}
-      >
+      <FmtBtn active={editor.isActive('italic')} title="Italic (⌘I)"    onClick={() => editor.chain().focus().toggleItalic().run()}>
         <IconItalic width={14} height={14} />
       </FmtBtn>
-      <FmtBtn
-        active={editor.isActive('strike')}
-        title="Strikethrough"
-        onClick={() => editor.chain().focus().toggleStrike().run()}
-      >
+      <FmtBtn active={editor.isActive('strike')} title="Strikethrough"  onClick={() => editor.chain().focus().toggleStrike().run()}>
         <IconStrike width={14} height={14} />
       </FmtBtn>
 
       <div className="sfb-divider" />
 
       {/* Lists */}
-      <FmtBtn
-        active={editor.isActive('bulletList')}
-        title="Bullet list"
-        onClick={() => editor.chain().focus().toggleBulletList().run()}
-      >
-        <IconList width={14} height={14} />
+      <FmtBtn active={editor.isActive('bulletList')}  title="Bullet list"    onClick={() => editor.chain().focus().toggleBulletList().run()}>
+        <IconList          width={14} height={14} />
       </FmtBtn>
-      <FmtBtn
-        active={editor.isActive('orderedList')}
-        title="Numbered list"
-        onClick={() => editor.chain().focus().toggleOrderedList().run()}
-      >
-        <IconListNumbered width={14} height={14} />
+      <FmtBtn active={editor.isActive('orderedList')} title="Numbered list"  onClick={() => editor.chain().focus().toggleOrderedList().run()}>
+        <IconListNumbered  width={14} height={14} />
       </FmtBtn>
-      <FmtBtn
-        active={editor.isActive('taskList')}
-        title="To-do list"
-        onClick={() => editor.chain().focus().toggleTaskList().run()}
-      >
-        <IconCheck width={14} height={14} />
+      <FmtBtn active={editor.isActive('taskList')}    title="To-do list"     onClick={() => editor.chain().focus().toggleTaskList().run()}>
+        <IconCheck         width={14} height={14} />
       </FmtBtn>
 
       <div className="sfb-divider" />
 
       {/* Link */}
-      <FmtBtn
-        active={editor.isActive('link')}
-        title="Link"
-        onClick={promptLink}
-      >
+      <FmtBtn active={editor.isActive('link')} title="Link" onClick={promptLink}>
         <IconLink width={14} height={14} />
       </FmtBtn>
 
       {/* Image upload */}
       <label className="sfb-btn" title="Insert image">
         <IconImage width={14} height={14} />
-        <input
-          type="file"
-          accept="image/*"
-          style={{ display: 'none' }}
-          onChange={handleImageFile}
-        />
+        <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageFile} />
       </label>
 
       <div className="sfb-divider" />
@@ -265,17 +252,16 @@ export default function ShapeEditorInner({
 
   return (
     <>
-      <EditorContent
-        editor={editor}
-        className="shape-editor-content"
-        onKeyDown={(e) => {
-          if (e.key === 'Escape') {
-            e.stopPropagation()
-            onClose()
-          }
-        }}
-        onMouseDown={(e) => e.stopPropagation()}
-      />
+      <div ref={editorWrapRef} style={{ position: 'absolute', inset: 0, display: 'contents' }}>
+        <EditorContent
+          editor={editor}
+          className="shape-editor-content"
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') { e.stopPropagation(); onClose() }
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+        />
+      </div>
       {createPortal(bar, document.body)}
     </>
   )

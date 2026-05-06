@@ -1,8 +1,9 @@
-/* ── Shape format bar — position: fixed, floats above the shape ── */
+/* ── Shape format bar — position: fixed, always floats above the shape ──
+   top is set to the shape's rect.top; transform shifts the bar up by
+   its own height plus an 8 px gap so it never overlaps the shape. */
 .shape-format-bar {
   position: fixed;
-  transform: translate(-50%, -100%);
-  margin-top: -10px;
+  transform: translate(-50%, calc(-100% - 8px));
   display: flex;
   align-items: center;
   gap: 1px;
@@ -14,11 +15,13 @@
   z-index: 1100;
   user-select: none;
   animation: sfb-in 140ms var(--ease);
+  /* don't let the bar trigger the document pointerdown close handler */
+  pointer-events: all;
 }
 
 @keyframes sfb-in {
-  from { opacity: 0; transform: translate(-50%, calc(-100% + 5px)); }
-  to   { opacity: 1; transform: translate(-50%, -100%); }
+  from { opacity: 0; transform: translate(-50%, calc(-100% - 3px)); }
+  to   { opacity: 1; transform: translate(-50%, calc(-100% - 8px)); }
 }
 
 .sfb-btn {
