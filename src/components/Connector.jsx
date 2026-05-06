@@ -403,6 +403,7 @@ export default function Connector({
 
   const handleBoneMouseDown = (e, bone) => {
     e.stopPropagation()
+    e.preventDefault()
     // Read zoom + pan from the canvas-world transform matrix
     const svgEl      = e.currentTarget.closest('svg')
     const worldEl    = svgEl?.parentElement          // .canvas-world div
@@ -506,12 +507,14 @@ export default function Connector({
 
       {/* ── Bone circles ─────────────────────────────────────────────────── */}
       {bones.map((bone, i) => (
-        <g key={`bone-${i}`}>
-          {/* Larger transparent hit area for easy grabbing */}
+        <g key={`bone-${i}`} className="connector-bone">
+          {/* Larger hit area for easy grabbing — explicit pointer-events: all
+              overrides .connectors-layer { pointer-events: none } */}
           <circle
             cx={bone.svgX} cy={bone.svgY} r={10}
-            fill="transparent"
-            style={{ cursor: boneCursor(bone.constraint) }}
+            fill="white"
+            fillOpacity={0.001}
+            style={{ cursor: boneCursor(bone.constraint), pointerEvents: 'all' }}
             onMouseDown={(e) => handleBoneMouseDown(e, bone)}
           />
           {/* Visible handle */}
@@ -521,7 +524,7 @@ export default function Connector({
             stroke="#3b82f6"
             strokeWidth={2}
             opacity={bone.isVirtual ? 0.6 : 1}
-            style={{ cursor: boneCursor(bone.constraint), pointerEvents: 'none' }}
+            style={{ pointerEvents: 'none' }}
           />
           {/* Inner dot for stored bones */}
           {!bone.isVirtual && (
