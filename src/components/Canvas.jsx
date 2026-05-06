@@ -288,10 +288,12 @@ export default function Canvas({
   onDeleteConnector,
   tool,
   setTool,
+  focusRequest,
 }) {
   const containerRef = useRef(null)
   const lastPointerWorldRef = useRef(null)
   const pendingObjectPasteRef = useRef(null)
+  const focusAnimRef = useRef(null)
   const [view, setView] = useState({ x: 0, y: 0, zoom: 1 })
   const [panning, setPanning] = useState(null)
   const [dragging, setDragging] = useState(null)
@@ -300,12 +302,94 @@ export default function Canvas({
   const [linking, setLinking] = useState(null) // { sourceId, sourceSide, x, y }
   const [hoveredCardId, setHoveredCardId] = useState(null)
   const [selectedConnectorId, setSelectedConnectorId] = useState(null)
+  const [searchPulseId, setSearchPulseId] = useState(null)
 
   const cardsById = useMemo(() => {
     const m = {}
     cards.forEach((c) => (m[c.id] = c))
     return m
   }, [cards])
+
+  // Smoothly animate the view (pan + zoom) so the requested card is centred
+  // in the viewport. Triggered by `focusRequest.token` bumps from the search bar.
+  // Uses requestAnimationFrame when the tab is visible (smooth) and falls
+  // back to setTimeout when hidden (so headless / background tab still pans).
+  useEffect(() => {
+    if (!focusRequest?.id) return
+    const card = cardsById[focusRequest.id]
+    const container = containerRef.current
+    if (!card || !container) return
+
+    const rect = container.getBoundingClientRect()
+    // Choose a target zoom: don't shrink the view, but cap at 1.4 so the
+    // card doesn't jump to fullscreen when navigating.
+    const targetZoom = Math.min(1.4, Math.max(view.zoom, 1))
+    const cardCenterX = card.x + card.width / 2
+    const cardCenterY = card.y + card.height / 2
+    const targetView = {
+      zoom: targetZoom,
+      x: rect.width / 2 - cardCenterX * targetZoom,
+      y: rect.height / 2 - cardCenterY * targetZoom,
+    }
+
+    // Cancel any in-flight animation
+    if (focusAnimRef.current) {
+      if (typeof focusAnimRef.current === 'object') {
+        clearTimeout(focusAnimRef.current.timer)
+      } else {
+        cancelAnimationFrame(focusAnimRef.current)
+      }
+      focusAnimRef.current = null
+    }
+
+    const startView = { ...view }
+    const start = performance.now()
+    const duration = 480
+    const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
+
+    const useRaf = !document.hidden
+
+    const step = (now) => {
+      const ts = now ?? performance.now()
+      const t = Math.min(1, (ts - start) / duration)
+      const e = ease(t)
+      setView({
+        zoom: startView.zoom + (targetView.zoom - startView.zoom) * e,
+        x:    startView.x    + (targetView.x    - startView.x)    * e,
+        y:    startView.y    + (targetView.y    - startView.y)    * e,
+      })
+      if (t < 1) {
+        if (useRaf) {
+          focusAnimRef.current = requestAnimationFrame(step)
+        } else {
+          const timer = setTimeout(() => step(performance.now()), 16)
+          focusAnimRef.current = { timer }
+        }
+      } else {
+        focusAnimRef.current = null
+      }
+    }
+    if (useRaf) {
+      focusAnimRef.current = requestAnimationFrame(step)
+    } else {
+      const timer = setTimeout(() => step(performance.now()), 16)
+      focusAnimRef.current = { timer }
+    }
+
+    // Pulse-highlight the card briefly on arrival
+    setSearchPulseId(focusRequest.id)
+    const pulseTimer = setTimeout(() => setSearchPulseId((cur) => (cur === focusRequest.id ? null : cur)), 1400)
+
+    return () => {
+      if (focusAnimRef.current) {
+        if (typeof focusAnimRef.current === 'object') clearTimeout(focusAnimRef.current.timer)
+        else cancelAnimationFrame(focusAnimRef.current)
+        focusAnimRef.current = null
+      }
+      clearTimeout(pulseTimer)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusRequest?.token])
 
   // For each connector, compute its rendered line segments in world+offset coords.
   // Used to detect crossings between connectors so we can draw line-jump arcs.
@@ -758,6 +842,7 @@ export default function Canvas({
             selected={selectedId === card.id}
             hovered={hoveredCardId === card.id}
             linkTarget={!!linking && linking.sourceId !== card.id}
+            searchPulse={searchPulseId === card.id}
             onMouseDown={(e) => startDrag(e, card)}
             onDoubleClick={() => {
               if (isDetailCard(card)) onOpenDetail(card.id)

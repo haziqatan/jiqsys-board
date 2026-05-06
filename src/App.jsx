@@ -3,6 +3,7 @@ import Canvas from './components/Canvas'
 import Toolbar from './components/Toolbar'
 import CardDetail from './components/CardDetail'
 import BoardMenu from './components/BoardMenu'
+import SearchBar from './components/SearchBar'
 import {
   ensureBoard,
   fetchCards,
@@ -63,6 +64,11 @@ export default function App() {
   const [statusOptions, setStatusOptions] = useState(loadStatusOptions)
   const [assigneeOptions, setAssigneeOptions] = useState(() => loadOptions(ASSIGNEE_OPTIONS_KEY))
   const [tagOptions, setTagOptions] = useState(() => loadOptions(TAG_OPTIONS_KEY))
+  const [searchOpen, setSearchOpen] = useState(false)
+  // Bumped each time the user navigates to a new search hit. Canvas listens
+  // to this and animates the view to centre the focused card; we use an
+  // incrementing token so re-clicking the same result still re-pans.
+  const [focusRequest, setFocusRequest] = useState({ id: null, token: 0 })
 
   // Per-card write batching state. Local updates are applied instantly for
   // smooth dragging/resizing; the actual Supabase write is debounced so we
@@ -87,6 +93,23 @@ export default function App() {
   useEffect(() => {
     if (boardId) localStorage.setItem(ACTIVE_BOARD_KEY, boardId)
   }, [boardId])
+
+  // Cmd/Ctrl+F → toggle search bar (intercepts browser's find)
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'f' || e.key === 'F')) {
+        e.preventDefault()
+        setSearchOpen((open) => !open)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  const handleFocusCard = useCallback((id) => {
+    setFocusRequest((prev) => ({ id, token: prev.token + 1 }))
+    setSelectedId(id)
+  }, [])
 
   // Browser pinch-zoom prevention
   useEffect(() => {
@@ -567,9 +590,17 @@ export default function App() {
         onDeleteConnector={handleDeleteConnector}
         tool={tool}
         setTool={setTool}
+        focusRequest={focusRequest}
       />
 
       <Toolbar tool={tool} setTool={setTool} />
+
+      <SearchBar
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        cards={cards}
+        onFocus={handleFocusCard}
+      />
 
       {loading && <div className="status-pill">Loading…</div>}
       {error && <div className="status-pill error">{error}</div>}

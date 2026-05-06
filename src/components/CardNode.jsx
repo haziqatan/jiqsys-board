@@ -40,6 +40,7 @@ export default function CardNode({
   selected,
   hovered,
   linkTarget,
+  searchPulse,
   onMouseDown,
   onDoubleClick,
   onMouseEnter,
@@ -158,7 +159,7 @@ export default function CardNode({
     const image = card.description?.image
     return (
       <div
-        className={`card-node image-node${selected ? ' selected' : ''}${linkTarget ? ' link-target' : ''}`}
+        className={`card-node image-node${selected ? ' selected' : ''}${linkTarget ? ' link-target' : ''}${searchPulse ? ' search-pulse' : ''}`}
         style={{ left: card.x, top: card.y, width: displayW, height: displayH }}
         onMouseDown={(e) => { if (editingTitle) return; onMouseDown(e) }}
         onDoubleClick={(e) => { e.stopPropagation(); onDoubleClick() }}
@@ -188,7 +189,7 @@ export default function CardNode({
     const taHeight = Math.max(20, displayH - 8)
     return (
       <div
-        className={`card-node text-node${selected ? ' selected' : ''}${linkTarget ? ' link-target' : ''}`}
+        className={`card-node text-node${selected ? ' selected' : ''}${linkTarget ? ' link-target' : ''}${searchPulse ? ' search-pulse' : ''}`}
         style={{ left: card.x, top: card.y, width: displayW, height: displayH }}
         onMouseDown={(e) => { if (editingTitle) return; onMouseDown(e) }}
         onDoubleClick={(e) => { e.stopPropagation(); setEditingTitle(true) }}
@@ -241,7 +242,7 @@ export default function CardNode({
     return (
       <div
         ref={nodeRef}
-        className={`card-node shape-node shape-${nodeShape}${selected ? ' selected' : ''}${linkTarget ? ' link-target' : ''}`}
+        className={`card-node shape-node shape-${nodeShape}${selected ? ' selected' : ''}${linkTarget ? ' link-target' : ''}${searchPulse ? ' search-pulse' : ''}`}
         style={{ left: card.x, top: card.y, width: displayW, height: displayH }}
         onMouseDown={(e) => { if (editingTitle) return; onMouseDown(e) }}
         onDoubleClick={(e) => { e.stopPropagation(); setEditingTitle(true) }}
@@ -295,7 +296,7 @@ export default function CardNode({
 
   return (
     <div
-      className={`card-node shape-rect${selected ? ' selected' : ''}${linkTarget ? ' link-target' : ''}`}
+      className={`card-node shape-rect${selected ? ' selected' : ''}${linkTarget ? ' link-target' : ''}${searchPulse ? ' search-pulse' : ''}`}
       style={{ left: card.x, top: card.y, width: card.width, height: card.height }}
       onMouseDown={(e) => { if (editingTitle) return; onMouseDown(e) }}
       onDoubleClick={(e) => { e.stopPropagation(); onDoubleClick() }}

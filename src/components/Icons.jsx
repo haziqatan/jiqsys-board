@@ -350,3 +350,23 @@ export const IconParallelogram = (p) => (
     <path d="M6 18h10l4-12H10z" />
   </svg>
 )
+
+export const IconSearch = (p) => (
+  <svg {...base} {...p}>
+    <circle cx="11" cy="11" r="6.5" {...duo} />
+    <circle cx="11" cy="11" r="6.5" />
+    <path d="M16 16l4 4" />
+  </svg>
+)
+
+export const IconChevronLeft = (p) => (
+  <svg {...base} {...p}>
+    <path d="M14 6l-6 6 6 6" />
+  </svg>
+)
+
+export const IconChevronRight = (p) => (
+  <svg {...base} {...p}>
+    <path d="M10 6l6 6-6 6" />
+  </svg>
+)
