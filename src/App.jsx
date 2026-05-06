@@ -507,13 +507,14 @@ export default function App() {
 
   const handleCreateConnector = useCallback(
     async (sourceId, targetId, opts = {}) => {
-      if (!sourceId || !targetId || sourceId === targetId) return
+      if (!sourceId || !targetId || sourceId === targetId) return null
       const exists = connectors.find(
         (c) => c.source_card_id === sourceId && c.target_card_id === targetId,
       )
-      if (exists) return
+      if (exists) return null
       const conn = await createConnector(boardId, sourceId, targetId, opts)
       setConnectors((prev) => [...prev.filter((c) => c.id !== conn.id), conn])
+      return conn
     },
     [boardId, connectors],
   )
@@ -536,6 +537,206 @@ export default function App() {
     }
   }, [])
 
+  // ── Undo history ──────────────────────────────────────────────────────
+  // Per-session stack of inverse operations. Each user-visible action
+  // (create/delete/update of a card or connector) records an entry; Cmd/Ctrl+Z
+  // pops the latest and reverts it. Rapid bursts of updates to the same
+  // target (drags, resizes, typing) are merged into a single entry whose
+  // before-state captures the field values *before* the burst started.
+  const HISTORY_MAX = 200
+  const HISTORY_DEBOUNCE_MS = 700
+  const historyRef = useRef([])
+  const openWindowsRef = useRef(new Map()) // key -> { entry, timeoutId }
+  const cardsRef = useRef(cards)
+  const connectorsRef = useRef(connectors)
+  useEffect(() => { cardsRef.current = cards }, [cards])
+  useEffect(() => { connectorsRef.current = connectors }, [connectors])
+
+  const closeAllWindows = useCallback(() => {
+    for (const w of openWindowsRef.current.values()) {
+      if (w.timeoutId) clearTimeout(w.timeoutId)
+    }
+    openWindowsRef.current.clear()
+  }, [])
+
+  const pushHistory = useCallback((entry) => {
+    historyRef.current.push(entry)
+    if (historyRef.current.length > HISTORY_MAX) historyRef.current.shift()
+  }, [])
+
+  // Open a new entry for `key`, or extend the existing window. `before` is
+  // the snapshot of the fields about to change *as of the first call in the
+  // window*. Subsequent calls only add fields that weren't already captured.
+  const openOrExtendWindow = useCallback((key, type, id, before) => {
+    const existing = openWindowsRef.current.get(key)
+    if (!existing) {
+      const entry = { type, id, before: { ...before } }
+      pushHistory(entry)
+      openWindowsRef.current.set(key, {
+        entry,
+        timeoutId: setTimeout(
+          () => openWindowsRef.current.delete(key),
+          HISTORY_DEBOUNCE_MS,
+        ),
+      })
+    } else {
+      clearTimeout(existing.timeoutId)
+      existing.timeoutId = setTimeout(
+        () => openWindowsRef.current.delete(key),
+        HISTORY_DEBOUNCE_MS,
+      )
+      for (const k of Object.keys(before)) {
+        if (!(k in existing.entry.before)) existing.entry.before[k] = before[k]
+      }
+    }
+  }, [pushHistory])
+
+  // Tracked wrappers — same signatures as the primitives, plus history side-effect.
+  const trackedCreateCard = useCallback(async (x, y, overrides = {}) => {
+    closeAllWindows()
+    const card = await handleCreateCard(x, y, overrides)
+    if (card) pushHistory({ type: 'createCard', cardId: card.id })
+    return card
+  }, [handleCreateCard, closeAllWindows, pushHistory])
+
+  const trackedDeleteCard = useCallback(async (id) => {
+    closeAllWindows()
+    const card = cardsRef.current.find((c) => c.id === id)
+    const conns = connectorsRef.current.filter(
+      (c) => c.source_card_id === id || c.target_card_id === id,
+    )
+    if (card) {
+      pushHistory({
+        type: 'deleteCard',
+        card: structuredClone(card),
+        connectors: conns.map((c) => structuredClone(c)),
+      })
+    }
+    return handleDeleteCard(id)
+  }, [handleDeleteCard, closeAllWindows, pushHistory])
+
+  const trackedUpdateCard = useCallback((id, patch) => {
+    const card = cardsRef.current.find((c) => c.id === id)
+    if (card) {
+      const before = {}
+      for (const k of Object.keys(patch)) before[k] = card[k]
+      openOrExtendWindow(`card:${id}`, 'updateCard', id, before)
+    }
+    return handleUpdateCard(id, patch)
+  }, [handleUpdateCard, openOrExtendWindow])
+
+  const trackedCreateConnector = useCallback(async (sourceId, targetId, opts) => {
+    closeAllWindows()
+    const conn = await handleCreateConnector(sourceId, targetId, opts)
+    if (conn) pushHistory({ type: 'createConnector', connectorId: conn.id })
+    return conn
+  }, [handleCreateConnector, closeAllWindows, pushHistory])
+
+  const trackedDeleteConnector = useCallback(async (id) => {
+    closeAllWindows()
+    const conn = connectorsRef.current.find((c) => c.id === id)
+    if (conn) pushHistory({ type: 'deleteConnector', connector: structuredClone(conn) })
+    return handleDeleteConnector(id)
+  }, [handleDeleteConnector, closeAllWindows, pushHistory])
+
+  const trackedUpdateConnector = useCallback((id, patch) => {
+    const conn = connectorsRef.current.find((c) => c.id === id)
+    if (conn) {
+      const before = {}
+      for (const k of Object.keys(patch)) before[k] = conn[k]
+      openOrExtendWindow(`conn:${id}`, 'updateConnector', id, before)
+    }
+    return handleUpdateConnector(id, patch)
+  }, [handleUpdateConnector, openOrExtendWindow])
+
+  // Apply one history entry's inverse. All branches use the *primitive*
+  // handlers / db calls so the undo itself is not re-recorded.
+  const applyUndo = useCallback(async (entry) => {
+    if (!entry) return
+    switch (entry.type) {
+      case 'createCard': {
+        await handleDeleteCard(entry.cardId)
+        break
+      }
+      case 'deleteCard': {
+        const card = entry.card
+        // Optimistic local restore
+        setCards((prev) => [...prev.filter((c) => c.id !== card.id), card])
+        if (entry.connectors.length > 0) {
+          setConnectors((prev) => [
+            ...prev.filter((c) => !entry.connectors.some((ec) => ec.id === c.id)),
+            ...entry.connectors,
+          ])
+        }
+        // Persist with original ids preserved
+        const { created_at: _ca, updated_at: _ua, ...cardInsert } = card
+        try { await createCard(card.board_id, cardInsert) } catch (e) { console.error(e) }
+        await Promise.all(entry.connectors.map((c) => {
+          const { created_at: _cca, updated_at: _cua, source_card_id, target_card_id, board_id, ...rest } = c
+          return createConnector(board_id, source_card_id, target_card_id, { id: c.id, ...rest })
+            .catch((e) => console.error(e))
+        }))
+        break
+      }
+      case 'updateCard': {
+        handleUpdateCard(entry.id, entry.before)
+        break
+      }
+      case 'createConnector': {
+        await handleDeleteConnector(entry.connectorId)
+        break
+      }
+      case 'deleteConnector': {
+        const conn = entry.connector
+        setConnectors((prev) => [...prev.filter((c) => c.id !== conn.id), conn])
+        const { created_at: _ca, updated_at: _ua, source_card_id, target_card_id, board_id, ...rest } = conn
+        try {
+          await createConnector(board_id, source_card_id, target_card_id, { id: conn.id, ...rest })
+        } catch (e) {
+          console.error(e)
+        }
+        break
+      }
+      case 'updateConnector': {
+        await handleUpdateConnector(entry.id, entry.before)
+        break
+      }
+      default:
+        console.warn('Unknown history entry type:', entry.type)
+    }
+  }, [handleDeleteCard, handleDeleteConnector, handleUpdateCard, handleUpdateConnector])
+
+  const undo = useCallback(() => {
+    closeAllWindows()
+    const entry = historyRef.current.pop()
+    if (!entry) return
+    applyUndo(entry)
+  }, [closeAllWindows, applyUndo])
+
+  // Cmd/Ctrl+Z → undo. Skip when typing in inputs/textareas/contentEditable
+  // so the browser's native input-undo still works for text fields.
+  useEffect(() => {
+    const isTyping = (el) =>
+      el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)
+    const onKey = (e) => {
+      if (!(e.metaKey || e.ctrlKey)) return
+      if (e.shiftKey) return // reserve Cmd+Shift+Z for redo (not implemented yet)
+      if (e.key !== 'z' && e.key !== 'Z') return
+      if (isTyping(e.target)) return
+      e.preventDefault()
+      undo()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [undo])
+
+  // Reset history when switching boards — entries reference ids that won't
+  // exist on the other board.
+  useEffect(() => {
+    historyRef.current = []
+    closeAllWindows()
+  }, [boardId, closeAllWindows])
+
   const detailCard = detailId ? cards.find((c) => c.id === detailId) : null
   const visibleDetailCard = isDetailCard(detailCard) ? detailCard : null
 
@@ -557,7 +758,7 @@ export default function App() {
           statusOptions={statusOptions}
           assigneeOptions={assigneeOptions}
           tagOptions={tagOptions}
-          onUpdate={(patch) => handleUpdateCard(visibleDetailCard.id, patch)}
+          onUpdate={(patch) => trackedUpdateCard(visibleDetailCard.id, patch)}
           onCreateStatus={handleCreateStatus}
           onUpdateStatus={handleUpdateStatus}
           onDeleteStatus={handleDeleteStatus}
@@ -567,7 +768,7 @@ export default function App() {
           onCreateTag={handleCreateTag}
           onUpdateTag={handleUpdateTag}
           onDeleteTag={handleDeleteTag}
-          onDelete={() => handleDeleteCard(visibleDetailCard.id)}
+          onDelete={() => trackedDeleteCard(visibleDetailCard.id)}
           onClose={() => setDetailId(null)}
         />
       )}
@@ -583,12 +784,12 @@ export default function App() {
         onSelect={setSelectedId}
         onOpenDetail={setDetailId}
         onCloseDetail={() => setDetailId(null)}
-        onCreateCard={handleCreateCard}
-        onUpdateCard={handleUpdateCard}
-        onDeleteCard={handleDeleteCard}
-        onCreateConnector={handleCreateConnector}
-        onUpdateConnector={handleUpdateConnector}
-        onDeleteConnector={handleDeleteConnector}
+        onCreateCard={trackedCreateCard}
+        onUpdateCard={trackedUpdateCard}
+        onDeleteCard={trackedDeleteCard}
+        onCreateConnector={trackedCreateConnector}
+        onUpdateConnector={trackedUpdateConnector}
+        onDeleteConnector={trackedDeleteConnector}
         tool={tool}
         setTool={setTool}
         focusRequest={focusRequest}
