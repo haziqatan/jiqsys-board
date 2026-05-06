@@ -58,12 +58,27 @@
   line-height: 1.6;
   color: var(--text);
   min-height: 160px;
+  /* Make the editor itself a scroll container so users can see all of
+     the TipTap content even when it's taller than the visible area.
+     overscroll-behavior: contain stops the wheel from bleeding to the
+     surrounding panel/canvas once we hit the top/bottom edge. */
+  max-height: 55vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
 }
 
 .editor-content .ProseMirror {
   outline: none;
   min-height: 140px;
 }
+
+/* WebKit thin scrollbar to match scrollbar-width:thin */
+.editor-content::-webkit-scrollbar           { width: 8px; }
+.editor-content::-webkit-scrollbar-thumb     { background: var(--border-strong); border-radius: 4px; }
+.editor-content::-webkit-scrollbar-track     { background: transparent; }
 
 .editor-content .ProseMirror p.is-editor-empty:first-child::before {
   content: 'Add a description…';

@@ -34,6 +34,10 @@
   border: 1px solid var(--border);
   box-shadow: var(--shadow-lg), 0 0 0 1px rgba(15,20,35,.06);
   animation: cd-modal-in 240ms var(--ease);
+  /* Explicit so the modal itself scrolls when its inner content (header,
+     editor, metadata fields, manage panes) outgrows 88vh. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 @keyframes cd-modal-in {
@@ -52,6 +56,8 @@
   border-right: none;
   border-bottom: 1px solid var(--border);
   animation: cd-expand 200ms var(--ease);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 @keyframes cd-expand {
@@ -76,7 +82,8 @@
 
 .mode-modal .cd-description,
 .mode-fullscreen .cd-description {
-  flex: 1;
+  /* Don't use flex:1 here — letting the editor's own max-height + scroll
+     handle its overflow keeps the panel scrollable as a whole. */
   min-height: 220px;
 }
 
@@ -407,18 +414,21 @@
 }
 
 .cd-description {
-  flex: 1;
   display: flex;
   flex-direction: column;
   min-height: 200px;
 }
 .cd-description .rich-editor {
-  flex: 1;
   display: flex;
   flex-direction: column;
+  /* Allow the editor to size to its content (capped by .editor-content's
+     own max-height + scroll), so the surrounding panel can scroll the
+     metadata and the editor scrolls its body independently. */
 }
 .cd-description .editor-content {
-  flex: 1;
+  /* `min-height` + `max-height` + `overflow-y:auto` come from
+     RichTextEditor.css. Don't override with flex:1 here, which would
+     stretch the editor and defeat its own scroll viewport. */
 }
 
 /* ── Color bar style picker ── */
