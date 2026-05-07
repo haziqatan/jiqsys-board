@@ -4,17 +4,18 @@ import {
   isUnlocked,
   setPassword,
   verifyPassword,
-  verifyRecoveryEmail,
   markUnlocked,
   lock,
 } from '../lib/security'
+import { requestResetOtp, verifyResetOtp } from '../lib/otp'
 import '../styles/PasswordGate.css'
 
 // Stages:
-//  • 'setup'         – first-time visit, no password yet
-//  • 'login'         – locked, ask for password
-//  • 'recover-email' – user clicked "Forgot password?"
-//  • 'recover-set'   – email verified, choose a new password
+//  • 'setup'        – first-time visit, no password yet
+//  • 'login'        – locked, ask for password
+//  • 'otp-request'  – user clicked "Forgot password?", confirm sending email
+//  • 'otp-enter'    – OTP sent, user types the 6-digit code
+//  • 'otp-set'      – OTP verified, choose a new password
 const initialStage = () => (hasPassword() ? 'login' : 'setup')
 
 export default function PasswordGate({ children }) {
@@ -22,8 +23,9 @@ export default function PasswordGate({ children }) {
   const [stage, setStage] = useState(initialStage)
   const [pwd, setPwd] = useState('')
   const [pwd2, setPwd2] = useState('')
-  const [email, setEmail] = useState('')
+  const [otp, setOtp] = useState('')
   const [error, setError] = useState('')
+  const [info, setInfo] = useState('')
   const [busy, setBusy] = useState(false)
   const inputRef = useRef(null)
 
@@ -60,7 +62,7 @@ export default function PasswordGate({ children }) {
     return () => window.removeEventListener('storage', onStorage)
   }, [])
 
-  const resetForm = () => { setPwd(''); setPwd2(''); setEmail(''); setError('') }
+  const resetForm = () => { setPwd(''); setPwd2(''); setOtp(''); setError(''); setInfo('') }
 
   const handleSetup = async (e) => {
     e.preventDefault()
@@ -98,23 +100,47 @@ export default function PasswordGate({ children }) {
     }
   }
 
-  const handleVerifyEmail = async (e) => {
+  // Step 1 of reset: ask the server to email a 6-digit OTP to the
+  // recipients configured in Vercel env vars (never present in source).
+  const handleSendOtp = async (e) => {
     e.preventDefault()
     setError('')
+    setInfo('')
     setBusy(true)
     try {
-      const ok = await verifyRecoveryEmail(email)
-      if (!ok) {
-        setError('That email does not match the recovery address on file.')
+      const res = await requestResetOtp()
+      if (!res.ok) {
+        setError(res.error || 'Could not send the code.')
         return
       }
-      setEmail('')
-      setStage('recover-set')
+      setInfo('A 6-digit code was sent to the recovery inbox. It expires in 10 minutes.')
+      setStage('otp-enter')
     } finally {
       setBusy(false)
     }
   }
 
+  // Step 2: send the typed code back to the server for verification.
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault()
+    setError('')
+    if (!/^\d{6}$/.test(otp.trim())) return setError('Please enter the 6-digit code.')
+    setBusy(true)
+    try {
+      const res = await verifyResetOtp(otp.trim())
+      if (!res.ok) {
+        setError(res.error || 'That code is invalid or has expired.')
+        return
+      }
+      setOtp('')
+      setInfo('')
+      setStage('otp-set')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // Step 3: write the new password.
   const handleRecoverSet = async (e) => {
     e.preventDefault()
     setError('')
@@ -211,32 +237,25 @@ export default function PasswordGate({ children }) {
             <button
               type="button"
               className="pg-link"
-              onClick={() => { resetForm(); setStage('recover-email') }}
+              onClick={() => { resetForm(); setStage('otp-request') }}
             >
               Forgot password?
             </button>
           </form>
         )
 
-      case 'recover-email':
+      case 'otp-request':
         return (
-          <form className="pg-card" onSubmit={handleVerifyEmail} autoComplete="off">
+          <form className="pg-card" onSubmit={handleSendOtp} autoComplete="off">
             <div className="pg-icon-wrap"><KeyIcon size={22} /></div>
             <h1 className="pg-title">Reset password</h1>
-            <p className="pg-sub">Enter the recovery email associated with this board to confirm it's you.</p>
-            <input
-              ref={inputRef}
-              className="pg-input"
-              type="email"
-              placeholder="Recovery email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
-              required
-            />
+            <p className="pg-sub">
+              We'll email a 6-digit code to the recovery inbox configured for this
+              board. The code is valid for 10 minutes.
+            </p>
             {error && <div className="pg-error">{error}</div>}
             <button className="pg-primary" type="submit" disabled={busy}>
-              {busy ? 'Verifying…' : 'Verify'}
+              {busy ? 'Sending…' : 'Send code'}
             </button>
             <button
               type="button"
@@ -248,12 +267,62 @@ export default function PasswordGate({ children }) {
           </form>
         )
 
-      case 'recover-set':
+      case 'otp-enter':
+        return (
+          <form className="pg-card" onSubmit={handleVerifyOtp} autoComplete="off">
+            <div className="pg-icon-wrap"><KeyIcon size={22} /></div>
+            <h1 className="pg-title">Enter the code</h1>
+            <p className="pg-sub">
+              {info || 'Check your recovery inbox for a 6-digit code.'}
+            </p>
+            <input
+              ref={inputRef}
+              className="pg-input pg-input-otp"
+              type="text"
+              inputMode="numeric"
+              pattern="\d{6}"
+              maxLength={6}
+              placeholder="••••••"
+              value={otp}
+              onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              autoComplete="one-time-code"
+              required
+            />
+            {error && <div className="pg-error">{error}</div>}
+            <button className="pg-primary" type="submit" disabled={busy || otp.length !== 6}>
+              {busy ? 'Verifying…' : 'Verify code'}
+            </button>
+            <button
+              type="button"
+              className="pg-link"
+              onClick={async () => {
+                setError('')
+                setBusy(true)
+                const res = await requestResetOtp()
+                setBusy(false)
+                if (res.ok) setInfo('A new code was sent to the recovery inbox.')
+                else setError(res.error || 'Could not resend.')
+              }}
+              disabled={busy}
+            >
+              Resend code
+            </button>
+            <button
+              type="button"
+              className="pg-link"
+              onClick={() => { resetForm(); setStage('login') }}
+            >
+              Back to sign in
+            </button>
+          </form>
+        )
+
+      case 'otp-set':
         return (
           <form className="pg-card" onSubmit={handleRecoverSet} autoComplete="off">
             <div className="pg-icon-wrap"><KeyIcon size={22} /></div>
             <h1 className="pg-title">Choose a new password</h1>
-            <p className="pg-sub">Recovery confirmed. Set a new password.</p>
+            <p className="pg-sub">Code verified. Set a new password.</p>
             <input
               ref={inputRef}
               className="pg-input"

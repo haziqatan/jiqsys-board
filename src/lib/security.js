@@ -25,11 +25,9 @@ const SESSION_HOURS = 24
 const PBKDF2_ITER   = 200000           // ~50ms on a modern CPU
 const HASH_BYTES    = 32
 
-// PBKDF2(salt='5OVvuwYu5id0iUxMEz1S2A==', iter=200000, hash='SHA-256') of the
-// owner's recovery email (lower-cased + trimmed). Computed at build-time and
-// embedded here as opaque base64. The literal email never appears anywhere.
-const RECOVERY_EMAIL_SALT_B64 = '5OVvuwYu5id0iUxMEz1S2A=='
-const RECOVERY_EMAIL_HASH_B64 = '8Okprj5v1EjvAhKBb7lQbghUiJH0xtbWwzcGN6Jw91s='
+// (Recovery is now handled by a server-side OTP — see /api/send-otp.js
+// and /api/verify-otp.js. The recipient emails live exclusively in
+// Vercel env vars, never in the source or in the client bundle.)
 
 // ── byte helpers ──
 function bytesToBase64(bytes) {
@@ -102,19 +100,6 @@ export async function verifyPassword(plain) {
     plain,
     base64ToBytes(parsed.saltB64),
     parsed.iter || PBKDF2_ITER,
-    expected.length,
-  )
-  return constantTimeEqual(computed, expected)
-}
-
-export async function verifyRecoveryEmail(email) {
-  const trimmed = (email || '').trim().toLowerCase()
-  if (!trimmed) return false
-  const expected = base64ToBytes(RECOVERY_EMAIL_HASH_B64)
-  const computed = await pbkdf2(
-    trimmed,
-    base64ToBytes(RECOVERY_EMAIL_SALT_B64),
-    PBKDF2_ITER,
     expected.length,
   )
   return constantTimeEqual(computed, expected)
