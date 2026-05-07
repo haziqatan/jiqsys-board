@@ -230,9 +230,15 @@ export default function CardNode({
   if (nodeShape === 'text') {
     const handleInput = (e) => {
       const ta = e.target
-      ta.style.height = '0px'
+      // Measure natural content height by briefly setting height to "auto"
+      // (NOT 0 — at 0 the typed character is clipped behind overflow:hidden
+      // for the frame between mutation and React's re-render).
+      const prev = ta.style.height
+      ta.style.height = 'auto'
+      const measured = ta.scrollHeight
+      ta.style.height = prev
       const min = MIN_SIZE.text
-      setEditH(Math.max(min.h, ta.scrollHeight + 8))
+      setEditH(Math.max(min.h, measured + 8))
       setDraftTitle(ta.value)
     }
     const taHeight = Math.max(20, displayH - 8)

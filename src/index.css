@@ -64,6 +64,21 @@ input, textarea, select {
   color: inherit;
 }
 
+/* Make every text caret visible at a glance — without this rule the
+   browser draws the caret in the user-agent default colour (pure black
+   on macOS, hard to spot inside coloured cells, accent-soft fills, or
+   small checkbox-style labels). Routing every editable surface to the
+   accent blue caret means cell editors, the password gate, the search
+   bar, the card detail inputs and the in-table contentEditable cells
+   all show a clearly-visible cursor. */
+input,
+textarea,
+select,
+[contenteditable="true"],
+[contenteditable=""] {
+  caret-color: var(--accent);
+}
+
 input:focus-visible, textarea:focus-visible, select:focus-visible {
   outline: none;
 }

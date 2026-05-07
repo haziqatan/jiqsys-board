@@ -232,7 +232,10 @@
 .card-node.text-node.selected {
   border: 1px dashed var(--accent);
   box-shadow: 0 0 0 2px var(--accent-soft);
-  background: rgba(255,255,255,.6);
+  /* Near-opaque background so the typed text reads cleanly against any
+     canvas grid pattern behind. The previous 0.6 alpha let the grid
+     bleed through and made characters look washed out. */
+  background: rgba(255, 255, 255, 0.96);
 }
 
 .text-node-label {
@@ -261,10 +264,16 @@
   font-size: 14px;
   font-weight: 500;
   color: var(--text);
+  /* Explicit visible blue caret so the cursor is easy to see while
+     typing; default browser caret can blend with the surrounding ink. */
+  caret-color: var(--accent);
   line-height: 1.4;
   resize: none;
-  overflow: hidden;
+  /* Allow vertical overflow during the brief moment between typing and
+     auto-grow re-render — overflow:hidden was clipping in-flight text. */
+  overflow: visible;
   padding: 0 4px;
+  min-height: 20px;
 }
 
 .card-node.image-node {
