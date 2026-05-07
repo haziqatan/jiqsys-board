@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { getStatusColor } from '../lib/status'
 import { getOptionColor } from '../lib/options'
 import ShapeEditorInner from './ShapeEditorInner'
+import TableNode from './TableNode'
 import '../styles/CardNode.css'
 
 const SHAPE_CLIP = {
@@ -184,57 +185,6 @@ export default function CardNode({
 
   // ── TABLE NODE ───────────────────────────────────────────────────────
   if (nodeShape === 'table') {
-    const tableData = card.description?.table || {
-      headers: ['Column 1', 'Column 2'],
-      rows: [['', ''], ['', '']],
-    }
-    const headers = tableData.headers || []
-    const rows    = tableData.rows    || []
-
-    const commitTable = (next) => onDescriptionChange({ table: next })
-
-    const addColumn = () => {
-      const nextHeaders = [...headers, `Column ${headers.length + 1}`]
-      const nextRows    = rows.map((r) => [...r, ''])
-      commitTable({ headers: nextHeaders, rows: nextRows })
-      // Grow card width so the new column has room.
-      onResize(card.width + 120, card.height)
-    }
-
-    const addRow = () => {
-      const nextRows = [...rows, headers.map(() => '')]
-      commitTable({ headers, rows: nextRows })
-      onResize(card.width, card.height + TABLE_ROW_H)
-    }
-
-    const updateHeader = (cIdx, value) => {
-      commitTable({
-        headers: headers.map((h, i) => (i === cIdx ? value : h)),
-        rows,
-      })
-    }
-    const updateCell = (rIdx, cIdx, value) => {
-      commitTable({
-        headers,
-        rows: rows.map((r, i) =>
-          i === rIdx ? r.map((c, j) => (j === cIdx ? value : c)) : r,
-        ),
-      })
-    }
-    const removeColumn = (cIdx) => {
-      if (headers.length <= 1) return
-      commitTable({
-        headers: headers.filter((_, i) => i !== cIdx),
-        rows: rows.map((r) => r.filter((_, i) => i !== cIdx)),
-      })
-      onResize(Math.max(MIN_SIZE.table.w, card.width - 120), card.height)
-    }
-    const removeRow = (rIdx) => {
-      if (rows.length <= 1) return
-      commitTable({ headers, rows: rows.filter((_, i) => i !== rIdx) })
-      onResize(card.width, Math.max(MIN_SIZE.table.h, card.height - TABLE_ROW_H))
-    }
-
     return (
       <div
         className={`card-node table-node${selected ? ' selected' : ''}${linkTarget ? ' link-target' : ''}${searchPulse ? ' search-pulse' : ''}${ghost ? ' ghost-node' : ''}`}
@@ -243,71 +193,11 @@ export default function CardNode({
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
       >
-        <div className="card-inner table-inner">
-          <table className="cn-table">
-            <colgroup>
-              {headers.map((_, i) => (
-                <col key={i} style={{ width: `calc((100% - 28px) / ${headers.length})` }} />
-              ))}
-              <col style={{ width: '28px' }} />
-            </colgroup>
-            <thead>
-              <tr>
-                {headers.map((h, i) => (
-                  <TableEditCell
-                    key={`h-${i}`}
-                    isHeader
-                    value={h}
-                    onCommit={(v) => updateHeader(i, v)}
-                    onDelete={headers.length > 1 ? () => removeColumn(i) : null}
-                  />
-                ))}
-                <th className="cn-table-add-col">
-                  <button
-                    type="button"
-                    title="Add column"
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onClick={(e) => { e.stopPropagation(); addColumn() }}
-                  >+</button>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, rIdx) => (
-                <tr key={`r-${rIdx}`}>
-                  {row.map((cell, cIdx) => (
-                    <TableEditCell
-                      key={`c-${rIdx}-${cIdx}`}
-                      value={cell}
-                      onCommit={(v) => updateCell(rIdx, cIdx, v)}
-                    />
-                  ))}
-                  <td className="cn-table-row-actions">
-                    {rows.length > 1 && (
-                      <button
-                        type="button"
-                        title="Delete row"
-                        onMouseDown={(e) => e.stopPropagation()}
-                        onClick={(e) => { e.stopPropagation(); removeRow(rIdx) }}
-                      >×</button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr>
-                <td colSpan={headers.length + 1} className="cn-table-add-row">
-                  <button
-                    type="button"
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onClick={(e) => { e.stopPropagation(); addRow() }}
-                  >+ Add row</button>
-                </td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+        <TableNode
+          card={card}
+          onDescriptionChange={onDescriptionChange}
+          onResize={onResize}
+        />
         {handles}
         {resizeHandle}
       </div>
@@ -522,132 +412,4 @@ export default function CardNode({
   )
 }
 
-// ── Table cell with double-click-to-edit ───────────────────────────────
-// Uses a contentEditable <div> so Enter inserts a real line-break and
-// browsers' native Cmd+B / Cmd+I / Cmd+U format the selected text. A
-// small inline toolbar (B / I / U) also exposes those for click users.
-// The cell content is stored as HTML (sanitised on commit to a tiny
-// allowlist: <b><strong><i><em><u><br><div><span>).
-
-const ALLOWED_TAGS = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'BR', 'DIV', 'SPAN', 'P'])
-
-function sanitizeCellHtml(node) {
-  // Walk the node's children, stripping any element whose tag is not in
-  // the allowlist (children kept), and dropping every attribute except
-  // a constrained `style` for color (so the formatting toolbar can also
-  // expose colour later if we want).
-  if (!node) return ''
-  const walker = document.createTreeWalker(node, NodeFilter.SHOW_ELEMENT)
-  const toUnwrap = []
-  let cur = walker.nextNode()
-  while (cur) {
-    if (!ALLOWED_TAGS.has(cur.tagName)) {
-      toUnwrap.push(cur)
-    } else {
-      // Strip event handlers / class / id / data-* / etc.
-      for (const a of [...cur.attributes]) {
-        if (a.name === 'style') continue
-        cur.removeAttribute(a.name)
-      }
-    }
-    cur = walker.nextNode()
-  }
-  for (const el of toUnwrap) {
-    while (el.firstChild) el.parentNode.insertBefore(el.firstChild, el)
-    el.parentNode.removeChild(el)
-  }
-  return node.innerHTML
-}
-
-function TableEditCell({ value, onCommit, onDelete, isHeader }) {
-  const [editing, setEditing] = useState(false)
-  const editRef = useRef(null)
-
-  // When entering edit mode, seed the contenteditable with the current
-  // HTML and place the caret at the end. We DON'T re-sync from `value`
-  // while editing — the browser owns the DOM during that window.
-  useEffect(() => {
-    if (!editing) return
-    const el = editRef.current
-    if (!el) return
-    el.innerHTML = value || ''
-    el.focus()
-    const range = document.createRange()
-    range.selectNodeContents(el)
-    range.collapse(false)
-    const sel = window.getSelection()
-    sel.removeAllRanges()
-    sel.addRange(range)
-  }, [editing])  // eslint-disable-line react-hooks/exhaustive-deps
-
-  const commit = () => {
-    if (!editing) return
-    const next = sanitizeCellHtml(editRef.current)
-    setEditing(false)
-    if (next !== (value || '')) onCommit(next)
-  }
-  const cancel = () => setEditing(false)
-
-  const exec = (cmd) => {
-    // execCommand is technically deprecated but still ubiquitous and the
-    // simplest path to inline formatting inside contentEditable. Wrapped
-    // in a try/catch in case a future browser drops it.
-    try { document.execCommand(cmd, false) } catch { /* no-op */ }
-    editRef.current?.focus()
-  }
-
-  const Tag = isHeader ? 'th' : 'td'
-
-  if (editing) {
-    return (
-      <Tag className={`cn-table-cell${isHeader ? ' cn-table-th' : ''} editing`}>
-        <div className="cn-cell-toolbar" onMouseDown={(e) => e.preventDefault()}>
-          <button type="button" title="Bold (⌘B)"      onClick={() => exec('bold')}><b>B</b></button>
-          <button type="button" title="Italic (⌘I)"    onClick={() => exec('italic')}><i>I</i></button>
-          <button type="button" title="Underline (⌘U)" onClick={() => exec('underline')}><u>U</u></button>
-        </div>
-        <div
-          ref={editRef}
-          className="cn-table-input"
-          contentEditable
-          suppressContentEditableWarning
-          onBlur={commit}
-          onKeyDown={(e) => {
-            // Esc cancels (revert to stored value), Tab + Cmd/Ctrl+Enter commit.
-            // A bare Enter falls through to the browser default → newline.
-            if (e.key === 'Escape') { e.preventDefault(); cancel() }
-            else if (e.key === 'Tab') { e.preventDefault(); commit() }
-            else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); commit() }
-          }}
-          onMouseDown={(e) => e.stopPropagation()}
-          onWheel={(e) => e.stopPropagation()}
-          spellCheck={false}
-        />
-      </Tag>
-    )
-  }
-
-  return (
-    <Tag
-      className={`cn-table-cell${isHeader ? ' cn-table-th' : ''}`}
-      onDoubleClick={(e) => { e.stopPropagation(); setEditing(true) }}
-    >
-      <div
-        className="cn-table-cell-content"
-        // Saved cells are HTML — render them with the same allowlist that
-        // we sanitise on commit. Plain-text values render fine too because
-        // text without HTML chars is semantically identical.
-        dangerouslySetInnerHTML={{ __html: value || '' }}
-      />
-      {isHeader && onDelete && (
-        <button
-          type="button"
-          className="cn-table-col-delete"
-          title="Delete column"
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={(e) => { e.stopPropagation(); onDelete() }}
-        >×</button>
-      )}
-    </Tag>
-  )
-}
+// (Table cells live in TableNode.jsx now.)

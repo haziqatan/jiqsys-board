@@ -624,6 +624,277 @@
 /* Selected card: stronger header tint + accent border */
 .card-node.table-node.selected .cn-table-th { background: var(--accent-soft); }
 
+/* ── Column header layout (type glyph + name + ⋯) ─────────────────── */
+.cn-th-inner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  height: 100%;
+  min-height: 36px;
+}
+.cn-th-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.cn-th-name {
+  flex: 1;
+  font-weight: 600;
+  font-size: 12.5px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: text;
+}
+.cn-th-name-input {
+  flex: 1;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  outline: none;
+  padding: 2px 6px;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--surface);
+}
+.cn-th-menu-btn {
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 100ms var(--ease), background 100ms var(--ease), color 100ms var(--ease);
+  flex-shrink: 0;
+}
+.cn-table-th:hover .cn-th-menu-btn,
+.cn-table-th.menu-open .cn-th-menu-btn {
+  opacity: 1;
+}
+.cn-th-menu-btn:hover {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+/* ── Column dropdown menu (portal) ───────────────────────────────── */
+.cn-col-menu {
+  position: fixed;
+  z-index: 2000;
+  min-width: 220px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 4px;
+  box-shadow: 0 14px 32px rgba(15, 20, 35, 0.18), 0 0 0 1px rgba(15, 20, 35, 0.04);
+  font-size: 12.5px;
+  color: var(--text);
+  user-select: none;
+  animation: cn-menu-in 120ms var(--ease);
+}
+@keyframes cn-menu-in {
+  from { opacity: 0; transform: translateY(-3px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.cn-col-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  font-size: 12.5px;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  position: relative;
+}
+.cn-col-menu-item:hover { background: var(--surface-2); }
+.cn-col-menu-item.danger { color: #b42318; }
+.cn-col-menu-item.danger:hover { background: #fef3f2; }
+.cn-col-menu-item:disabled { opacity: 0.45; cursor: not-allowed; }
+.cn-col-menu-item.danger:disabled:hover { background: transparent; }
+
+.cn-col-menu-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.cn-col-menu-label  { flex: 1; }
+.cn-col-menu-current { color: var(--text-soft); font-size: 11.5px; }
+.cn-col-menu-chev   { color: var(--text-soft); font-size: 14px; }
+.cn-col-menu-check  { color: var(--accent-strong); font-size: 12px; }
+.cn-col-menu-sep {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 2px;
+}
+
+/* Submenu — type picker */
+.cn-col-menu-item.has-sub.sub-open { background: var(--surface-2); }
+.cn-col-submenu {
+  position: absolute;
+  left: calc(100% + 4px);
+  top: -4px;
+  min-width: 200px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 4px;
+  box-shadow: 0 14px 32px rgba(15, 20, 35, 0.18);
+  z-index: 1;
+  animation: cn-menu-in 120ms var(--ease);
+}
+.cn-col-menu-item.type-row.active { background: var(--accent-soft); color: var(--accent-strong); }
+.cn-col-menu-item.type-row.active .cn-col-menu-glyph { color: var(--accent-strong); }
+
+/* ── Cell type variants ──────────────────────────────────────────── */
+.cn-table-cell.number-cell .cn-table-cell-content,
+.cn-table-cell.number-cell .cn-input-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.cn-input-num { -moz-appearance: textfield; }
+.cn-input-num::-webkit-outer-spin-button,
+.cn-input-num::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+.cn-table-cell.checkbox-cell {
+  text-align: center;
+  cursor: pointer;
+  vertical-align: middle;
+}
+.cn-checkbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 4px;
+  background: var(--surface);
+  margin: 8px auto;
+  transition: background 120ms var(--ease), border-color 120ms var(--ease);
+}
+.cn-checkbox[data-checked="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.cn-checkbox-mark {
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.cn-table-cell.date-cell .cn-table-cell-content { color: var(--text-muted); }
+
+.cn-table-cell.link-cell .cn-table-cell-content a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+/* Select / Multi-select cells */
+.cn-table-cell.select-cell,
+.cn-table-cell.multi-cell {
+  cursor: pointer;
+}
+.cn-multi-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.cn-select-pill {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 1.5;
+  border: 1px solid;
+  white-space: nowrap;
+}
+
+/* Select popover */
+.cn-select-pop {
+  position: fixed;
+  z-index: 2000;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 6px;
+  box-shadow: 0 14px 32px rgba(15, 20, 35, 0.18);
+  max-height: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: cn-menu-in 120ms var(--ease);
+}
+.cn-select-search {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  outline: none;
+  font-family: inherit;
+  font-size: 12.5px;
+  color: var(--text);
+  background: var(--surface);
+}
+.cn-select-search:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.cn-select-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow-y: auto;
+  max-height: 220px;
+}
+.cn-select-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 5px 6px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12.5px;
+  color: var(--text);
+  text-align: left;
+}
+.cn-select-row:hover { background: var(--surface-2); }
+.cn-select-row.active { background: var(--accent-soft); }
+.cn-select-row.create { color: var(--accent-strong); justify-content: space-between; }
+.cn-select-row.danger { color: #b42318; justify-content: center; font-size: 11.5px; }
+.cn-select-row.danger:hover { background: #fef3f2; }
+.cn-select-check { margin-left: auto; color: var(--accent-strong); }
+
 /* ── Link-handle ghost suggestion ─────────────────────────────────────
    Shown when the user hovers a link-handle. Translucent preview of the
    same shape, with a "+" affordance, sitting where a new card would be
