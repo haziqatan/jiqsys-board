@@ -285,9 +285,15 @@ const ColumnHeader = forwardRef(function ColumnHeader(
       <th
         ref={ref}
         className={`cn-table-cell cn-table-th${menuOpen ? ' menu-open' : ''}`}
+        onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onOpenMenu() }}
       >
         <div className="cn-th-inner">
-          <span className="cn-th-glyph" title={column.type}>{TYPE_GLYPH[column.type] || 'T'}</span>
+          <span
+            className="cn-th-glyph"
+            title="Change type"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); onOpenMenu() }}
+          >{TYPE_GLYPH[column.type] || 'T'}</span>
           {editing ? (
             <input
               ref={inputRef}
@@ -313,7 +319,7 @@ const ColumnHeader = forwardRef(function ColumnHeader(
           <button
             type="button"
             className="cn-th-menu-btn"
-            title="Column options"
+            title="Column options (right-click also works)"
             onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => { e.stopPropagation(); onOpenMenu() }}
           >⋯</button>
@@ -349,32 +355,32 @@ function ColumnMenu({ anchorEl, column, canDelete, onClose, onChangeType, onInse
       style={{ left: pos.x, top: pos.y }}
       onMouseDown={(e) => e.stopPropagation()}
     >
-      <div
+      <button
+        type="button"
         className={`cn-col-menu-item has-sub${typeSubOpen ? ' sub-open' : ''}`}
-        onMouseEnter={() => setTypeSubOpen(true)}
-        onMouseLeave={() => setTypeSubOpen(false)}
+        onClick={(e) => { e.stopPropagation(); setTypeSubOpen((v) => !v) }}
       >
         <span className="cn-col-menu-glyph">{TYPE_GLYPH[column.type]}</span>
         <span className="cn-col-menu-label">Change type</span>
         <span className="cn-col-menu-current">{TYPES.find((t) => t.id === column.type)?.label}</span>
-        <span className="cn-col-menu-chev">›</span>
-        {typeSubOpen && (
-          <div className="cn-col-submenu">
-            {TYPES.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                className={`cn-col-menu-item type-row${t.id === column.type ? ' active' : ''}`}
-                onClick={(e) => { e.stopPropagation(); onChangeType(t.id) }}
-              >
-                <span className="cn-col-menu-glyph">{t.glyph}</span>
-                <span className="cn-col-menu-label">{t.label}</span>
-                {t.id === column.type && <span className="cn-col-menu-check">✓</span>}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+        <span className="cn-col-menu-chev">{typeSubOpen ? '⌄' : '›'}</span>
+      </button>
+      {typeSubOpen && (
+        <div className="cn-col-submenu cn-col-submenu-inline">
+          {TYPES.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              className={`cn-col-menu-item type-row${t.id === column.type ? ' active' : ''}`}
+              onClick={(e) => { e.stopPropagation(); onChangeType(t.id) }}
+            >
+              <span className="cn-col-menu-glyph">{t.glyph}</span>
+              <span className="cn-col-menu-label">{t.label}</span>
+              {t.id === column.type && <span className="cn-col-menu-check">✓</span>}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="cn-col-menu-sep" />
 

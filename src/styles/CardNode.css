@@ -637,12 +637,19 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
   font-size: 11px;
   font-weight: 600;
   color: var(--text-muted);
   flex-shrink: 0;
+  cursor: pointer;
+  transition: background 100ms var(--ease), color 100ms var(--ease);
+}
+.cn-th-glyph:hover {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
 }
 .cn-th-name {
   flex: 1;
@@ -679,17 +686,21 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  opacity: 0;
+  /* Always visible (was opacity:0 → invisible until you hovered the
+     exact header cell, which made column settings undiscoverable). */
+  opacity: 0.65;
   transition: opacity 100ms var(--ease), background 100ms var(--ease), color 100ms var(--ease);
   flex-shrink: 0;
 }
 .cn-table-th:hover .cn-th-menu-btn,
-.cn-table-th.menu-open .cn-th-menu-btn {
+.cn-table-th.menu-open .cn-th-menu-btn,
+.cn-th-menu-btn:focus-visible {
   opacity: 1;
 }
 .cn-th-menu-btn:hover {
   background: var(--accent-soft);
   color: var(--accent-strong);
+  opacity: 1;
 }
 
 /* ── Column dropdown menu (portal) ───────────────────────────────── */
@@ -753,23 +764,27 @@
   margin: 4px 2px;
 }
 
-/* Submenu — type picker */
+/* Submenu — type picker. Inline (expands inside the menu) when toggled
+   open via click — avoids the hover-gap issue of a nested popout. */
 .cn-col-menu-item.has-sub.sub-open { background: var(--surface-2); }
-.cn-col-submenu {
-  position: absolute;
-  left: calc(100% + 4px);
-  top: -4px;
-  min-width: 200px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 10px;
+.cn-col-submenu-inline {
+  margin: 2px 0 4px;
   padding: 4px;
-  box-shadow: 0 14px 32px rgba(15, 20, 35, 0.18);
-  z-index: 1;
+  border-radius: 8px;
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
   animation: cn-menu-in 120ms var(--ease);
+  max-height: 280px;
+  overflow-y: auto;
 }
+.cn-col-submenu-inline .cn-col-menu-item:hover { background: var(--surface); }
 .cn-col-menu-item.type-row.active { background: var(--accent-soft); color: var(--accent-strong); }
 .cn-col-menu-item.type-row.active .cn-col-menu-glyph { color: var(--accent-strong); }
+.cn-col-submenu-inline .cn-col-menu-item.type-row.active:hover {
+  background: var(--accent-soft);
+}
 
 /* ── Cell type variants ──────────────────────────────────────────── */
 .cn-table-cell.number-cell .cn-table-cell-content,
