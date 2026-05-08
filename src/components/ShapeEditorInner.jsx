@@ -156,12 +156,24 @@ export default function ShapeEditorInner({
         className="sfb-select"
         title="Font size"
         value={curFontSize}
+        // The format-bar wrapper preventDefaults every mousedown so buttons
+        // can be clicked without the editor losing focus. That same trick
+        // however suppresses the native open-dropdown behaviour of <select>
+        // — so we stop the event from reaching the wrapper.
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
         onChange={(e) => {
-          if (e.target.value) {
-            editor.chain().focus().setFontSize(`${e.target.value}px`).run()
-          } else {
-            editor.chain().focus().unsetFontSize().run()
-          }
+          const v = e.target.value
+          // Run inside requestAnimationFrame so the browser has a tick to
+          // close the native dropdown before we steal focus back to the
+          // editor — without it some browsers swallow the next click.
+          requestAnimationFrame(() => {
+            if (v) {
+              editor.chain().focus().setFontSize(`${v}px`).run()
+            } else {
+              editor.chain().focus().unsetFontSize().run()
+            }
+          })
         }}
       >
         <option value="">–</option>
