@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import Tree from 'react-d3-tree'
 import dagre from 'dagre'
 import {
@@ -140,25 +140,191 @@ export default function HierarchyView({
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
     downloadBlob(blob, `hierarchy-${Date.now()}.json`)
   }
-  const exportPng = async () => {
-    if (!treeRef.current) return
-    setExporting(true)
+
+  /**
+   * Snapshot the WHOLE view, not just the visible scroll region.
+   * For Indent we briefly remove the scroll cap so html-to-image can
+   * paint every row. For Tree / Dagre we look up the inner SVG and
+   * make it carry a viewBox big enough to contain every node.
+   */
+  const captureFullCanvas = async () => {
+    if (!treeRef.current) return null
+    const { toCanvas } = await import('html-to-image')
+    const body = treeRef.current
+
+    // Save current state, expand everything to fit content, snapshot,
+    // restore. Synchronous flag-flip + 2 frame waits is enough for the
+    // browser to paint at the bigger size before we capture.
+    const restorers = []
+    const restore = () => restorers.reverse().forEach((r) => r())
+
+    // 1) Body itself: turn the scroll cap off.
+    const prevMaxH = body.style.maxHeight
+    const prevH    = body.style.height
+    const prevOver = body.style.overflow
+    const fullH    = body.scrollHeight
+    body.style.maxHeight = 'none'
+    body.style.height    = `${fullH}px`
+    body.style.overflow  = 'visible'
+    restorers.push(() => {
+      body.style.maxHeight = prevMaxH
+      body.style.height    = prevH
+      body.style.overflow  = prevOver
+    })
+
+    // 2) For Tree (react-d3-tree) and Dagre, the inner <svg> draws at
+    //    a viewport size and pans/zooms via a transform. To capture
+    //    the entire graph, find the inner content-bbox and make the
+    //    svg cover it (resetting the transform so it's framed).
+    const svg = body.querySelector('svg')
+    let prevSvg = null
+    if (svg) {
+      const inner = svg.querySelector('g')
+      if (inner) {
+        const innerBox = inner.getBBox()
+        const padding = 24
+        prevSvg = {
+          width:    svg.getAttribute('width'),
+          height:   svg.getAttribute('height'),
+          viewBox:  svg.getAttribute('viewBox'),
+          gTransform: inner.getAttribute('transform'),
+        }
+        const w = Math.max(800, Math.ceil(innerBox.width  + padding * 2))
+        const h = Math.max(400, Math.ceil(innerBox.height + padding * 2))
+        svg.setAttribute('width',  String(w))
+        svg.setAttribute('height', String(h))
+        svg.setAttribute(
+          'viewBox',
+          `${innerBox.x - padding} ${innerBox.y - padding} ${innerBox.width + padding * 2} ${innerBox.height + padding * 2}`,
+        )
+        // No translate/scale — the viewBox already frames the content.
+        inner.setAttribute('transform', 'translate(0,0) scale(1)')
+        restorers.push(() => {
+          if (prevSvg.width  != null) svg.setAttribute('width',  prevSvg.width)
+          else svg.removeAttribute('width')
+          if (prevSvg.height != null) svg.setAttribute('height', prevSvg.height)
+          else svg.removeAttribute('height')
+          if (prevSvg.viewBox != null) svg.setAttribute('viewBox', prevSvg.viewBox)
+          else svg.removeAttribute('viewBox')
+          if (prevSvg.gTransform != null) inner.setAttribute('transform', prevSvg.gTransform)
+          else inner.removeAttribute('transform')
+        })
+      }
+    }
+
+    // Two frames so the new size is painted before capture.
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+
+    let canvas
     try {
-      // Lazy-load so it doesn't bloat the initial bundle.
-      const { toPng } = await import('html-to-image')
-      const dataUrl = await toPng(treeRef.current, {
+      canvas = await toCanvas(body, {
         cacheBust: true,
         pixelRatio: 2,
         backgroundColor: '#ffffff',
-        // Filter out the disclosure buttons — they're interactive & not
-        // useful in a static image.
-        filter: (node) =>
-          !(node.classList && node.classList.contains('hv-row-meta-actions')),
       })
-      const blob = await (await fetch(dataUrl)).blob()
-      downloadBlob(blob, `hierarchy-${Date.now()}.png`)
+    } finally {
+      restore()
+    }
+    return canvas
+  }
+
+  const exportPng = async () => {
+    setExporting(true)
+    try {
+      const canvas = await captureFullCanvas()
+      if (!canvas) return
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'))
+      if (blob) downloadBlob(blob, `hierarchy-${Date.now()}.png`)
     } catch (err) {
       console.error('PNG export failed:', err)
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  /**
+   * PDF export.
+   *
+   *  Indent → row-based pagination so a single row never gets sliced
+   *           across two pages. Walks every `.hv-row` element, paints
+   *           it to its own canvas, places it on the current PDF page,
+   *           and starts a new page when the next row wouldn't fit.
+   *  Tree / Dagre → the whole graph painted to one big canvas, then
+   *           sliced into A4-tall strips with a 12 mm overlap so any
+   *           card that lands on a page boundary is fully visible on
+   *           at least one of the adjacent pages.
+   */
+  const exportPdf = async () => {
+    setExporting(true)
+    try {
+      const { toCanvas } = await import('html-to-image')
+      const { jsPDF }    = await import('jspdf')
+
+      const orientation = viewMode === 'tree' || viewMode === 'dagre' ? 'landscape' : 'portrait'
+      const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation })
+      const pdfW = pdf.internal.pageSize.getWidth()
+      const pdfH = pdf.internal.pageSize.getHeight()
+      const margin = 8
+      const contentW = pdfW - margin * 2
+      const contentH = pdfH - margin * 2
+
+      if (viewMode === 'indent') {
+        // Row-based pagination, no cuts.
+        const rows = treeRef.current.querySelectorAll('.hv-row')
+        let cursorY = margin
+        let firstOnPage = true
+        for (const row of rows) {
+          const c = await toCanvas(row, { pixelRatio: 2, backgroundColor: '#ffffff', cacheBust: true })
+          const drawW = contentW
+          const drawH = (c.height * drawW) / c.width
+          if (!firstOnPage && cursorY + drawH > pdfH - margin) {
+            pdf.addPage()
+            cursorY = margin
+            firstOnPage = true
+          }
+          // If a single row is taller than a whole page, slice it across
+          // pages with overlap so nothing is lost.
+          if (drawH > contentH) {
+            let sliceY = 0
+            const sliceOverlap = 8 // mm — keeps text near a page break readable on both sides
+            while (sliceY < drawH) {
+              if (!firstOnPage) pdf.addPage()
+              pdf.addImage(c, 'PNG', margin, margin - sliceY, drawW, drawH)
+              sliceY += contentH - sliceOverlap
+              firstOnPage = false
+            }
+            cursorY = margin
+            firstOnPage = true
+            continue
+          }
+          pdf.addImage(c, 'PNG', margin, cursorY, drawW, drawH)
+          cursorY += drawH + 2
+          firstOnPage = false
+        }
+      } else {
+        // Tree / Dagre: one big canvas, slice into pages with overlap.
+        const canvas = await captureFullCanvas()
+        if (!canvas) return
+        const drawW = contentW
+        const drawH = (canvas.height * drawW) / canvas.width
+        if (drawH <= contentH) {
+          pdf.addImage(canvas, 'PNG', margin, margin, drawW, drawH)
+        } else {
+          let y = 0
+          const overlap = 12 // mm
+          let firstPage = true
+          while (y < drawH) {
+            if (!firstPage) pdf.addPage()
+            pdf.addImage(canvas, 'PNG', margin, margin - y, drawW, drawH)
+            y += contentH - overlap
+            firstPage = false
+          }
+        }
+      }
+
+      pdf.save(`hierarchy-${Date.now()}.pdf`)
+    } catch (err) {
+      console.error('PDF export failed:', err)
     } finally {
       setExporting(false)
     }
@@ -241,10 +407,13 @@ export default function HierarchyView({
               </select>
             </label>
             <span className="hv-divider" />
-            <button className="hv-btn" onClick={exportJson} disabled={!roots.length}>JSON</button>
-            <button className="hv-btn" onClick={exportPng} disabled={!roots.length || exporting}>
-              {exporting ? 'Exporting…' : 'PNG'}
-            </button>
+            <ExportMenu
+              disabled={!roots.length}
+              busy={exporting}
+              onJson={exportJson}
+              onPng={exportPng}
+              onPdf={exportPdf}
+            />
             <button className="hv-icon-btn" onClick={onClose} title="Close (Esc)">
               <IconClose width={14} height={14} />
             </button>
@@ -465,6 +634,57 @@ function EmptyState() {
   )
 }
 
+// ─── Export "⋯" dropdown menu ────────────────────────────────────────
+function ExportMenu({ disabled, busy, onJson, onPng, onPdf }) {
+  const [open, setOpen] = useState(false)
+  const wrapRef = useRef(null)
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDown, true)
+    return () => document.removeEventListener('mousedown', onDown, true)
+  }, [open])
+
+  const run = (fn) => () => { setOpen(false); fn?.() }
+
+  return (
+    <div className="hv-export-wrap" ref={wrapRef}>
+      <button
+        type="button"
+        className="hv-icon-btn hv-export-btn"
+        title="Export"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        disabled={disabled || busy}
+      >
+        ⋯
+      </button>
+      {open && (
+        <div className="hv-export-menu" role="menu">
+          <div className="hv-export-section">Export</div>
+          <button type="button" role="menuitem" className="hv-export-item" onClick={run(onJson)}>
+            <span className="hv-export-glyph">{ '{ }' }</span>
+            <span>JSON</span>
+            <span className="hv-export-hint">Tree shape + metadata</span>
+          </button>
+          <button type="button" role="menuitem" className="hv-export-item" onClick={run(onPng)}>
+            <span className="hv-export-glyph">PNG</span>
+            <span>Image (PNG)</span>
+            <span className="hv-export-hint">Full view, top to bottom</span>
+          </button>
+          <button type="button" role="menuitem" className="hv-export-item" onClick={run(onPdf)}>
+            <span className="hv-export-glyph">PDF</span>
+            <span>Document (PDF)</span>
+            <span className="hv-export-hint">Multi-page, no clipping</span>
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Spatial tree view (react-d3-tree) ──────────────────────────────
 // Renders the hierarchy as a top-to-bottom tree with each node drawn as
 // an HTML card (via SVG <foreignObject>) so we can show full metadata.
@@ -491,14 +711,33 @@ function TreeView({ roots, showMetadata, expandedMetaIds, onToggleMeta, onFocusC
     return () => ro.disconnect()
   }, [onMeasure])
 
-  // If ANY card has its metadata expanded, give every card the larger
-  // size so react-d3-tree (which only supports one global node size)
-  // has room. Cards in preview mode just have whitespace below.
+  // ── Per-card content height measurement ──────────────────────────
+  // Each rendered card reports its actual scrollHeight via a ref. Tree
+  // can only honour ONE node size globally, so we use the maximum
+  // height across every measured card so the tallest card never gets
+  // clipped. Shorter cards display with whitespace below.
+  const [cardHeights, setCardHeights] = useState(() => new Map())
+  const reportHeight = useCallback((id, h) => {
+    setCardHeights((prev) => {
+      if (prev.get(id) === h) return prev
+      const next = new Map(prev)
+      next.set(id, h)
+      return next
+    })
+  }, [])
   const anyMetaExpanded = expandedMetaIds && expandedMetaIds.size > 0
-  const showFull = showMetadata && anyMetaExpanded
-  const nodeSize = { x: 320, y: !showMetadata ? 120 : showFull ? 320 : 220 }
+  // Default heights for the very first paint before measurements
+  // arrive; measurements then override.
+  const baseSlim = 92
+  const basePreview = 196
+  const baseFull = 296
+  const fallbackH = !showMetadata ? baseSlim : anyMetaExpanded ? baseFull : basePreview
+  const measuredMax = cardHeights.size
+    ? Math.max(...cardHeights.values(), fallbackH)
+    : fallbackH
   const cardW = 280
-  const cardH = !showMetadata ? 92 : showFull ? 296 : 196
+  const cardH = measuredMax + 12   // small padding under each card
+  const nodeSize = { x: 320, y: cardH + 24 }
 
   // Memoise the renderer so react-d3-tree doesn't unmount nodes between
   // renders (it uses === reference equality on the prop).
@@ -516,6 +755,7 @@ function TreeView({ roots, showMetadata, expandedMetaIds, onToggleMeta, onFocusC
           showMetadata={showMetadata}
           expandedMetaIds={expandedMetaIds}
           onToggleMeta={onToggleMeta}
+          onMeasureHeight={reportHeight}
           toggleNode={toggleNode}
           onFocusCard={onFocusCard}
           statusOptions={statusOptions}
@@ -525,7 +765,7 @@ function TreeView({ roots, showMetadata, expandedMetaIds, onToggleMeta, onFocusC
       </foreignObject>
     )
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showMetadata, expandedMetaIds, onToggleMeta, statusOptions, assigneeOptions, tagOptions, onFocusCard, cardW, cardH])
+  }, [showMetadata, expandedMetaIds, onToggleMeta, reportHeight, statusOptions, assigneeOptions, tagOptions, onFocusCard, cardW, cardH])
 
   return (
     <div ref={containerRef} className="hv-tree-wrap">
@@ -578,6 +818,19 @@ function DagreView({ cards, connectors, rootIds, direction, showMetadata, expand
     return () => ro.disconnect()
   }, [])
 
+  // Each Dagre card reports its actual content height; layout uses the
+  // measured value if available so cards grow to fit ALL metadata
+  // without internal scroll, and dagre keeps rows cleanly spaced.
+  const [cardHeights, setCardHeights] = useState(() => new Map())
+  const reportHeight = useCallback((id, h) => {
+    setCardHeights((prev) => {
+      if (prev.get(id) === h) return prev
+      const next = new Map(prev)
+      next.set(id, h)
+      return next
+    })
+  }, [])
+
   const layout = useMemo(() => {
     if (!rootIds?.length) return null
     const { nodes, edges, cyclic } = buildSubgraph(cards, connectors, rootIds)
@@ -593,12 +846,16 @@ function DagreView({ cards, connectors, rootIds, direction, showMetadata, expand
     })
     g.setDefaultEdgeLabel(() => ({}))
 
-    // Per-card height: cards with metadata expanded are taller. This
-    // re-runs dagre's layout whenever a user toggles a card, so the
-    // graph stays cleanly spaced.
+    // Per-card height: prefer the measured DOM height if the card has
+    // already rendered once; fall back to a reasonable default while
+    // measurements settle in. Measured heights make expanded cards
+    // grow to fit ALL metadata (no internal scroll).
     for (const n of nodes) {
       const expanded = !!expandedMetaIds?.has(n.id)
-      const h = !showMetadata
+      const measured = cardHeights.get(n.id)
+      const h = measured
+        ? measured + 12
+        : !showMetadata
         ? DAGRE_NODE_H_SLIM
         : expanded
         ? DAGRE_NODE_H_FULL + 100
@@ -630,7 +887,7 @@ function DagreView({ cards, connectors, rootIds, direction, showMetadata, expand
       bbox: { x: minX, y: minY, w: maxX - minX, h: maxY - minY },
       cyclic,
     }
-  }, [cards, connectors, rootIds, direction, showMetadata, expandedMetaIds])
+  }, [cards, connectors, rootIds, direction, showMetadata, expandedMetaIds, cardHeights])
 
   // Auto-fit the layout to the container the first time we have both
   // sizes available. Subsequent direction changes also re-fit.
@@ -732,6 +989,7 @@ function DagreView({ cards, connectors, rootIds, direction, showMetadata, expand
                 card={n.card}
                 expanded={!!expandedMetaIds?.has(n.card.id)}
                 onToggleMeta={onToggleMeta}
+                onMeasureHeight={reportHeight}
                 showMetadata={showMetadata}
                 onFocusCard={onFocusCard}
                 statusOptions={statusOptions}
@@ -775,10 +1033,22 @@ function pointsToPath(points) {
 
 // Reuse the same card layout as TreeNodeCard but keyed off a raw card
 // (Dagre walks the graph directly — no TreeNode placeholders).
-function DagreNodeCard({ card, expanded, onToggleMeta, showMetadata, onFocusCard, statusOptions, assigneeOptions, tagOptions }) {
+function DagreNodeCard({ card, expanded, onToggleMeta, onMeasureHeight, showMetadata, onFocusCard, statusOptions, assigneeOptions, tagOptions }) {
+  const ref = useRef(null)
+  useLayoutEffect(() => {
+    if (!ref.current || !onMeasureHeight) return
+    const measure = () => {
+      if (ref.current) onMeasureHeight(card.id, ref.current.scrollHeight)
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(ref.current)
+    return () => ro.disconnect()
+  }, [card.id, onMeasureHeight, expanded, showMetadata])
+
   if (!card) return null
   return (
-    <div className={`hv-tnc${expanded ? ' meta-expanded' : ''}`} style={{ borderTopColor: card.color || 'var(--accent)' }}>
+    <div ref={ref} className={`hv-tnc${expanded ? ' meta-expanded' : ''}`} style={{ borderTopColor: card.color || 'var(--accent)' }}>
       <div className="hv-tnc-row">
         <span className="hv-color-dot" style={{ background: card.color || '#cbd5e1' }} />
         <button
@@ -878,7 +1148,7 @@ function CardMetaBody({ card, expanded, statusOptions, assigneeOptions, tagOptio
   )
 }
 
-function TreeNodeCard({ datum, showMetadata, expandedMetaIds, onToggleMeta, toggleNode, onFocusCard, statusOptions, assigneeOptions, tagOptions }) {
+function TreeNodeCard({ datum, showMetadata, expandedMetaIds, onToggleMeta, onMeasureHeight, toggleNode, onFocusCard, statusOptions, assigneeOptions, tagOptions }) {
   // Virtual-root marker emitted by toRd3Forest when there are >1 roots —
   // render as a slim label.
   if (datum.__virtual) {
@@ -914,9 +1184,23 @@ function TreeNodeCard({ datum, showMetadata, expandedMetaIds, onToggleMeta, togg
   }
 
   const metaExpanded = !!expandedMetaIds?.has(card.id)
+  const cardRef = useRef(null)
+
+  // Report this card's actual rendered height up to TreeView so its
+  // global nodeSize can grow tall enough for the largest card.
+  useLayoutEffect(() => {
+    if (!cardRef.current || !onMeasureHeight) return
+    const measure = () => {
+      if (cardRef.current) onMeasureHeight(card.id, cardRef.current.scrollHeight)
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(cardRef.current)
+    return () => ro.disconnect()
+  }, [card.id, onMeasureHeight, metaExpanded, showMetadata])
 
   return (
-    <div className={`hv-tnc${metaExpanded ? ' meta-expanded' : ''}`} style={{ borderTopColor: card.color || 'var(--accent)' }}>
+    <div ref={cardRef} className={`hv-tnc${metaExpanded ? ' meta-expanded' : ''}`} style={{ borderTopColor: card.color || 'var(--accent)' }}>
       <div className="hv-tnc-row">
         <span className="hv-color-dot" style={{ background: card.color || '#cbd5e1' }} />
         <button
