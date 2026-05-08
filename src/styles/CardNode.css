@@ -276,6 +276,52 @@
   min-height: 20px;
 }
 
+/* ── Text-node + ShapeEditorInner overrides ─────────────────────────
+   The text-node uses the same TipTap editor as shapes do, but it has
+   no fill / no clip-path, and the text should be left-aligned (not
+   centred like inside a circle / diamond / etc.). */
+.card-node.text-node .shape-editor-content {
+  align-items: flex-start;        /* top-aligned, not centred */
+  justify-content: flex-start;
+  padding: 4px;
+  pointer-events: all;
+}
+.card-node.text-node .shape-editor-content .ProseMirror {
+  width: 100%;
+  max-height: none;               /* let auto-grow drive the card height */
+  text-align: left;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 0 4px;
+}
+
+/* Rich-text display when not editing */
+.text-node-label.rich {
+  pointer-events: all;
+  display: block;
+  align-items: unset;
+  padding: 4px 8px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--text);
+  word-break: break-word;
+  white-space: normal;
+  overflow: hidden;
+}
+.text-node-label.rich p { margin: 0 0 4px; }
+.text-node-label.rich p:last-child { margin-bottom: 0; }
+.text-node-label.rich ul,
+.text-node-label.rich ol { padding-left: 18px; margin: 2px 0; }
+.text-node-label.rich li { margin: 1px 0; }
+.text-node-label.rich a { color: var(--accent); text-decoration: underline; }
+.text-node-label.rich img { max-width: 100%; border-radius: var(--radius-sm); display: block; }
+.text-node-label.rich b,
+.text-node-label.rich strong { font-weight: 700; }
+.text-node-label.rich i,
+.text-node-label.rich em { font-style: italic; }
+.text-node-label.rich u { text-decoration: underline; }
+
 .card-node.image-node {
   overflow: hidden;
   background: var(--surface);

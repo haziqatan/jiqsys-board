@@ -5,6 +5,18 @@ import ShapeEditorInner from './ShapeEditorInner'
 import TableNode from './TableNode'
 import '../styles/CardNode.css'
 
+// Escape user-provided plain text before injecting it as HTML into a
+// contentEditable surface (used when migrating an old text-node's
+// `card.title` into the new rich-html storage path).
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 const SHAPE_CLIP = {
   diamond:       'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)',
   hexagon:       'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)',
@@ -109,6 +121,27 @@ export default function CardNode({
       window.removeEventListener('mouseup', onUp)
     }
   }, [resizing, onResize])
+
+  // Auto-grow the text-node card as the user types so the TipTap editor's
+  // content is never clipped. Only grows (never shrinks) so the user's
+  // last manual resize is respected when content is short.
+  useEffect(() => {
+    if (!editingTitle || nodeShape !== 'text' || !nodeRef.current) return
+    const update = () => {
+      const editor = nodeRef.current?.querySelector('.shape-editor-content .ProseMirror')
+      if (!editor) return
+      const min = MIN_SIZE.text
+      const needed = Math.max(min.h, editor.scrollHeight + 16)
+      if (needed > card.height) onResize(card.width, needed)
+    }
+    // Watch both the editor element AND its container; either one
+    // changing height should retrigger the measurement.
+    const ro = new ResizeObserver(update)
+    const editor = nodeRef.current.querySelector('.shape-editor-content .ProseMirror')
+    if (editor) ro.observe(editor)
+    update()
+    return () => ro.disconnect()
+  }, [editingTitle, nodeShape, card.width, card.height, onResize])
 
   const startResize = (e) => {
     e.stopPropagation()
@@ -226,51 +259,54 @@ export default function CardNode({
     )
   }
 
-  // ── TEXT NODE — plain text on canvas, no bg ─────────────────────────
+  // ── TEXT NODE — TipTap-powered rich text on canvas (transparent bg) ──
   if (nodeShape === 'text') {
-    const handleInput = (e) => {
-      const ta = e.target
-      // Measure natural content height by briefly setting height to "auto"
-      // (NOT 0 — at 0 the typed character is clipped behind overflow:hidden
-      // for the frame between mutation and React's re-render).
-      const prev = ta.style.height
-      ta.style.height = 'auto'
-      const measured = ta.scrollHeight
-      ta.style.height = prev
-      const min = MIN_SIZE.text
-      setEditH(Math.max(min.h, measured + 8))
-      setDraftTitle(ta.value)
-    }
-    const taHeight = Math.max(20, displayH - 8)
+    // Prefer the rich HTML stored in description.html. Fall back to the
+    // legacy plain-text title for any text-nodes created before this
+    // upgrade — they'll render fine and migrate to rich on first edit.
+    const richHtml      = card.description?.html
+    const fallbackTitle = card.title && card.title !== 'Text' ? card.title : ''
+    const isEmpty       = !richHtml || richHtml === '<p></p>' || richHtml.trim() === ''
+    const initialContent = richHtml
+      ? richHtml
+      : fallbackTitle
+      ? `<p>${escapeHtml(fallbackTitle)}</p>`
+      : '<p></p>'
+
+    const closeTextEdit = () => setEditingTitle(false)
+
     return (
       <div
+        ref={nodeRef}
         className={`card-node text-node${selected ? ' selected' : ''}${linkTarget ? ' link-target' : ''}${searchPulse ? ' search-pulse' : ''}${ghost ? ' ghost-node' : ''}`}
-        style={{ left: card.x, top: card.y, width: displayW, height: displayH }}
+        style={{ left: card.x, top: card.y, width: card.width, height: card.height }}
         onMouseDown={(e) => { if (editingTitle) return; onMouseDown(e) }}
         onDoubleClick={(e) => { e.stopPropagation(); setEditingTitle(true) }}
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
       >
         {editingTitle ? (
-          <textarea
-            ref={titleRef}
-            className="text-node-edit"
-            value={draftTitle}
-            style={{ height: taHeight }}
-            onChange={handleInput}
-            onBlur={commitTitle}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitTitle() }
-              if (e.key === 'Escape') { setDraftTitle(card.title); setEditingTitle(false) }
-            }}
-            onMouseDown={(e) => e.stopPropagation()}
+          <ShapeEditorInner
+            initialContent={initialContent}
+            onUpdate={(html) => onDescriptionChange({ html })}
+            onClose={closeTextEdit}
+            onColorChange={onColorChange}
+            cardColor={card.color}
+            anchorEl={nodeRef.current}
+            hideShapeColor
+          />
+        ) : !isEmpty ? (
+          <div
+            className="text-node-label rich"
+            dangerouslySetInnerHTML={{ __html: richHtml }}
+            onDoubleClick={(e) => { e.stopPropagation(); setEditingTitle(true) }}
           />
         ) : (
           <div
             className="text-node-label"
             onDoubleClick={(e) => { e.stopPropagation(); setEditingTitle(true) }}
           >
-            {card.title || 'Text'}
+            {fallbackTitle || 'Text'}
           </div>
         )}
         {handles}

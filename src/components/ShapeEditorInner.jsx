@@ -28,6 +28,11 @@ export default function ShapeEditorInner({
   onColorChange,
   cardColor,
   anchorEl,
+  // For text-nodes (no shape background) the shape-color picker has
+  // nothing to colour, so pass `hideShapeColor` to remove it from the
+  // toolbar. The rest of the format bar (font size, text colour, B/I/U,
+  // alignment, lists, link, image) stays.
+  hideShapeColor = false,
 }) {
   const colorInputRef    = useRef(null)
   const textColorInputRef = useRef(null)
@@ -126,22 +131,25 @@ export default function ShapeEditorInner({
       style={{ left: barPos.x, top: barPos.y }}
       onMouseDown={(e) => e.preventDefault()}
     >
-      {/* Shape fill color */}
-      <button
-        className="sfb-color-btn"
-        title="Shape color"
-        style={{ '--swatch': cardColor || '#dbeafe' }}
-        onClick={() => colorInputRef.current?.click()}
-      />
-      <input
-        ref={colorInputRef}
-        type="color"
-        value={cardColor || '#dbeafe'}
-        style={{ display: 'none' }}
-        onChange={(e) => onColorChange(e.target.value)}
-      />
-
-      <div className="sfb-divider" />
+      {/* Shape fill color (text-nodes have no fill so we hide it) */}
+      {!hideShapeColor && (
+        <>
+          <button
+            className="sfb-color-btn"
+            title="Shape color"
+            style={{ '--swatch': cardColor || '#dbeafe' }}
+            onClick={() => colorInputRef.current?.click()}
+          />
+          <input
+            ref={colorInputRef}
+            type="color"
+            value={cardColor || '#dbeafe'}
+            style={{ display: 'none' }}
+            onChange={(e) => onColorChange(e.target.value)}
+          />
+          <div className="sfb-divider" />
+        </>
+      )}
 
       {/* Font size */}
       <select
