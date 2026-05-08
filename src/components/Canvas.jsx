@@ -319,8 +319,9 @@ export default function Canvas({
   statusOptions,
   assigneeOptions,
   tagOptions,
-  selectedId,
+  selectedIds,
   onSelect,
+
   onOpenDetail,
   onCloseDetail,
   onCreateCard,
@@ -341,7 +342,8 @@ export default function Canvas({
   const [panning, setPanning] = useState(null)
   const [dragging, setDragging] = useState(null)
   const [snapVisual, setSnapVisual] = useState(null)
-  const [copiedCard, setCopiedCard] = useState(null)
+  // Multi-select copy buffer — array of card snapshots cloned for pasting.
+  const [copiedCards, setCopiedCards] = useState([])
   const [linking, setLinking] = useState(null) // { sourceId, sourceSide, x, y }
   const [hoveredCardId, setHoveredCardId] = useState(null)
   const [selectedConnectorId, setSelectedConnectorId] = useState(null)
@@ -355,6 +357,17 @@ export default function Canvas({
     cards.forEach((c) => (m[c.id] = c))
     return m
   }, [cards])
+
+  // Fast membership check for the selected set during render.
+  const selectedIdSet = useMemo(
+    () => new Set(selectedIds || []),
+    [selectedIds],
+  )
+  // Primary selection — the last id in the array. Used for surfaces that
+  // only operate on a single card (resize, link drag, ghost preview,
+  // detail-open) so multi-select doesn't break their semantics.
+  const primarySelectedId =
+    selectedIds && selectedIds.length ? selectedIds[selectedIds.length - 1] : null
 
   // Smoothly animate the view (pan + zoom) so the requested card is centred
   // in the viewport. Triggered by `focusRequest.token` bumps from the search bar.
@@ -514,8 +527,12 @@ export default function Canvas({
     if (e.button === 1 || (e.button === 0 && e.altKey) || (e.button === 0 && isEmpty && tool === 'select' && !linking)) {
       setPanning({ x: e.clientX, y: e.clientY, vx: view.x, vy: view.y })
       setSelectedConnectorId(null)
-      onSelect(null)
-      onCloseDetail?.()
+      // Clicking blank canvas clears the multi-select. Shift-clicking
+      // blank canvas keeps the selection (matches Miro/Figma).
+      if (!e.shiftKey) {
+        onSelect([])
+        onCloseDetail?.()
+      }
       return
     }
 
@@ -564,13 +581,28 @@ export default function Canvas({
     }
     if (dragging) {
       const { x, y } = screenToWorld(e.clientX, e.clientY)
-      const movingCard = cardsById[dragging.id]
+      const draggedSet = dragging.cards
+      // Multi-card drag: move every captured card by the cursor delta from
+      // its individually recorded offset; preserves relative spacing.
+      // Snap guides are only meaningful when a single card is moving — for
+      // multi-drag we skip snap entirely (and clear any stale guides).
+      if (draggedSet.length > 1) {
+        if (snapVisual) setSnapVisual(null)
+        for (const d of draggedSet) {
+          const c = cardsById[d.id]
+          if (!c) continue
+          onUpdateCard(d.id, { x: x - d.offsetX, y: y - d.offsetY })
+        }
+        return
+      }
+      const single = draggedSet[0]
+      const movingCard = cardsById[single.id]
       if (!movingCard) return
       const snap = getSnapResult({
         cards,
         movingCard,
-        draftX: x - dragging.offsetX,
-        draftY: y - dragging.offsetY,
+        draftX: x - single.offsetX,
+        draftY: y - single.offsetY,
         zoom: view.zoom,
       })
       // Only update snap state when there's something to show (or to clear) —
@@ -580,7 +612,7 @@ export default function Canvas({
         if (!hasSnap) return prev ? null : prev
         return snap.visual
       })
-      onUpdateCard(dragging.id, {
+      onUpdateCard(single.id, {
         x: snap.x,
         y: snap.y,
       })
@@ -672,17 +704,39 @@ export default function Canvas({
   useEffect(() => {
     const isTyping = (el) =>
       el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)
-    const pasteCopiedCard = async () => {
-      if (!copiedCard) return
-      const nextX = (copiedCard.x ?? getPasteWorldPoint().x) + PASTE_OFFSET
-      const nextY = (copiedCard.y ?? getPasteWorldPoint().y) + PASTE_OFFSET
-      const created = await onCreateCard(nextX, nextY, {
-        ...cloneCardForPaste(copiedCard),
-        x: nextX,
-        y: nextY,
-        title: copiedCard.title || 'Copy',
-      })
-      if (created) setCopiedCard(cloneCardForPaste(created))
+    const pasteCopiedCards = async () => {
+      if (!copiedCards.length) return
+      // Anchor the paste at the user's cursor world point (or viewport
+      // centre as fallback). The first card is positioned PASTE_OFFSET
+      // away from its original spot; every subsequent card preserves its
+      // relative offset to the first so the cluster keeps its shape.
+      const anchorX = copiedCards[0].x ?? getPasteWorldPoint().x
+      const anchorY = copiedCards[0].y ?? getPasteWorldPoint().y
+      const newCards = []
+      const newIds = []
+      for (const c of copiedCards) {
+        const dx = (c.x ?? anchorX) - anchorX
+        const dy = (c.y ?? anchorY) - anchorY
+        const nx = anchorX + dx + PASTE_OFFSET
+        const ny = anchorY + dy + PASTE_OFFSET
+        const created = await onCreateCard(nx, ny, {
+          ...cloneCardForPaste(c),
+          x: nx,
+          y: ny,
+          title: c.title || 'Copy',
+        })
+        if (created) {
+          newCards.push(created)
+          newIds.push(created.id)
+        }
+      }
+      // Re-arm the buffer with the freshly-pasted cards so a second Cmd+V
+      // produces a third batch offset further down/right (Miro-style).
+      if (newCards.length) {
+        setCopiedCards(newCards.map(cloneCardForPaste))
+        // Select the freshly-pasted set so user can immediately drag/edit.
+        onSelect(newIds)
+      }
     }
     const pasteImageFile = async (file) => {
       const src = await readFileAsDataUrl(file)
@@ -708,34 +762,38 @@ export default function Canvas({
       const commandKey = e.metaKey || e.ctrlKey
       if (commandKey && (e.key === 'c' || e.key === 'C')) {
         if (isTyping(e.target)) return
-        const selectedCard = selectedId ? cardsById[selectedId] : null
-        if (selectedCard) {
+        // Cmd/Ctrl+C copies EVERY card currently in the multi-selection.
+        const sel = (selectedIds || []).map((id) => cardsById[id]).filter(Boolean)
+        if (sel.length) {
           e.preventDefault()
-          setCopiedCard(cloneCardForPaste(selectedCard))
+          setCopiedCards(sel.map(cloneCardForPaste))
         }
         return
       }
       if (commandKey && (e.key === 'v' || e.key === 'V')) {
         if (isTyping(e.target)) return
-        if (copiedCard) {
+        if (copiedCards.length) {
           if (pendingObjectPasteRef.current) clearTimeout(pendingObjectPasteRef.current)
           pendingObjectPasteRef.current = setTimeout(() => {
             pendingObjectPasteRef.current = null
-            pasteCopiedCard().catch((error) => console.error(error))
+            pasteCopiedCards().catch((error) => console.error(error))
           }, 0)
         }
         return
       }
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (isTyping(e.target)) return
-        if (selectedId) onDeleteCard(selectedId)
-        else if (selectedConnectorId) {
+        // Delete every selected card (multi). Connector takes precedence
+        // only when no card is selected.
+        if ((selectedIds || []).length) {
+          for (const id of selectedIds) onDeleteCard(id)
+        } else if (selectedConnectorId) {
           onDeleteConnector(selectedConnectorId)
           setSelectedConnectorId(null)
         }
       }
       if (e.key === 'Escape') {
-        onSelect(null)
+        onSelect([])
         setSelectedConnectorId(null)
         setLinking(null)
         setTool('select')
@@ -769,10 +827,10 @@ export default function Canvas({
       if (pendingObjectPasteRef.current) clearTimeout(pendingObjectPasteRef.current)
     }
   }, [
-    selectedId,
+    selectedIds,
     selectedConnectorId,
     cardsById,
-    copiedCard,
+    copiedCards,
     onCreateCard,
     onDeleteCard,
     onDeleteConnector,
@@ -784,10 +842,39 @@ export default function Canvas({
 
   const startDrag = (e, card) => {
     e.stopPropagation()
-    onSelect(card.id)
     setSelectedConnectorId(null)
+
+    // Resolve the next selection set from the click + shift-key combo.
+    let nextSelected
+    if (e.shiftKey) {
+      // Shift-click → toggle this card's membership in the selection
+      // and DON'T begin a drag (matches Miro / Figma).
+      onSelect((prev) =>
+        (prev || []).includes(card.id)
+          ? prev.filter((x) => x !== card.id)
+          : [...(prev || []), card.id],
+      )
+      return
+    } else if ((selectedIds || []).includes(card.id)) {
+      // Already part of the multi-selection → keep selection, drag all.
+      nextSelected = selectedIds
+    } else {
+      // Plain click → replace with single-card selection.
+      nextSelected = [card.id]
+      onSelect(nextSelected)
+    }
+
     const { x, y } = screenToWorld(e.clientX, e.clientY)
-    setDragging({ id: card.id, offsetX: x - card.x, offsetY: y - card.y })
+    // Capture each dragged card's offset from the cursor so they all move
+    // together while preserving their relative positions.
+    const cardsToDrag = nextSelected
+      .map((id) => cardsById[id])
+      .filter(Boolean)
+      .map((c) => ({ id: c.id, offsetX: x - c.x, offsetY: y - c.y }))
+    setDragging({
+      primaryId: card.id,
+      cards: cardsToDrag.length ? cardsToDrag : [{ id: card.id, offsetX: x - card.x, offsetY: y - card.y }],
+    })
   }
 
   const startLink = (e, card, side) => {
@@ -840,7 +927,7 @@ export default function Canvas({
         source_side: linkHover.side,
         target_side: GHOST_OPPOSITE[linkHover.side],
       })
-      onSelect(created.id)
+      onSelect([created.id])
     }
   }
 
@@ -928,7 +1015,7 @@ export default function Canvas({
                 crossingSegments={crossings}
                 onSelect={() => {
                   setSelectedConnectorId(conn.id)
-                  onSelect(null)
+                  onSelect([])
                 }}
                 onUpdateWaypoints={(waypoints) =>
                   onUpdateConnector(conn.id, { waypoints })
@@ -970,7 +1057,7 @@ export default function Canvas({
           <CardNode
             key={card.id}
             card={card}
-            selected={selectedId === card.id}
+            selected={selectedIdSet.has(card.id)}
             hovered={hoveredCardId === card.id}
             linkTarget={!!linking && linking.sourceId !== card.id}
             searchPulse={searchPulseId === card.id}

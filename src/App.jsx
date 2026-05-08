@@ -56,7 +56,10 @@ export default function App() {
   })
   const [cards, setCards] = useState([])
   const [connectors, setConnectors] = useState([])
-  const [selectedId, setSelectedId] = useState(null)
+  // Multi-select: array of currently-selected card ids. Holding Shift
+  // while clicking a card toggles it in/out of this list; a plain click
+  // replaces the list with that single id; clicking empty canvas clears.
+  const [selectedIds, setSelectedIds] = useState([])
   const [detailId, setDetailId] = useState(null)
   const [tool, setTool] = useState('select')
   const [loading, setLoading] = useState(true)
@@ -108,7 +111,7 @@ export default function App() {
 
   const handleFocusCard = useCallback((id) => {
     setFocusRequest((prev) => ({ id, token: prev.token + 1 }))
-    setSelectedId(id)
+    setSelectedIds([id])
   }, [])
 
   // Browser pinch-zoom prevention
@@ -166,7 +169,7 @@ export default function App() {
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    setSelectedId(null)
+    setSelectedIds([])
     setDetailId(null)
     ;(async () => {
       try {
@@ -297,7 +300,7 @@ export default function App() {
         ...overrides,
       })
       setCards((prev) => [...prev.filter((c) => c.id !== card.id), card])
-      setSelectedId(card.id)
+      setSelectedIds([card.id])
       return card
     },
     [boardId],
@@ -495,14 +498,14 @@ export default function App() {
         prev.filter((c) => c.source_card_id !== id && c.target_card_id !== id),
       )
       if (detailId === id) setDetailId(null)
-      if (selectedId === id) setSelectedId(null)
+      setSelectedIds((prev) => prev.filter((x) => x !== id))
       try {
         await deleteCard(id)
       } catch (e) {
         console.error(e)
       }
     },
-    [detailId, selectedId],
+    [detailId],
   )
 
   const handleCreateConnector = useCallback(
@@ -780,8 +783,8 @@ export default function App() {
         statusOptions={statusOptions}
         assigneeOptions={assigneeOptions}
         tagOptions={tagOptions}
-        selectedId={selectedId}
-        onSelect={setSelectedId}
+        selectedIds={selectedIds}
+        onSelect={setSelectedIds}
         onOpenDetail={setDetailId}
         onCloseDetail={() => setDetailId(null)}
         onCreateCard={trackedCreateCard}
