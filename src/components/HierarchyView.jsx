@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Tree from 'react-d3-tree'
+import dagre from 'dagre'
 import {
   buildHierarchy,
+  buildSubgraph,
   collectExpandableIds,
   countTreeCards,
   serializeHierarchy,
@@ -56,8 +58,10 @@ export default function HierarchyView({
   tagOptions = [],
 }) {
   const [showMetadata, setShowMetadata] = useState(true)
-  // View mode: "indent" (vertical text rows) | "tree" (spatial via react-d3-tree)
+  // View mode: "indent" (rows) | "tree" (react-d3-tree) | "dagre" (DAG layout)
   const [viewMode, setViewMode] = useState('indent')
+  // Dagre layout direction: TB (top-to-bottom) | LR (left-to-right)
+  const [dagreDir, setDagreDir] = useState('TB')
   // react-d3-tree needs explicit pixel dimensions; we measure the body once
   // it mounts and on resize so the tree centres itself in the visible area.
   const [bodySize, setBodySize] = useState({ width: 0, height: 0 })
@@ -156,7 +160,7 @@ export default function HierarchyView({
             </span>
           </div>
           <div className="hv-header-actions">
-            {/* View-mode toggle — Indent (compact list) | Tree (spatial) */}
+            {/* View-mode toggle — Indent (list) | Tree (d3) | Dagre (DAG) */}
             <div className="hv-segmented" role="tablist">
               <button
                 role="tab"
@@ -170,7 +174,23 @@ export default function HierarchyView({
                 className={`hv-seg-btn${viewMode === 'tree' ? ' active' : ''}`}
                 onClick={() => setViewMode('tree')}
               >Tree</button>
+              <button
+                role="tab"
+                aria-selected={viewMode === 'dagre'}
+                className={`hv-seg-btn${viewMode === 'dagre' ? ' active' : ''}`}
+                onClick={() => setViewMode('dagre')}
+              >Dagre</button>
             </div>
+            {viewMode === 'dagre' && (
+              <label className="hv-toggle" title="Dagre layout direction">
+                <select value={dagreDir} onChange={(e) => setDagreDir(e.target.value)}>
+                  <option value="TB">↓ Top-Bottom</option>
+                  <option value="BT">↑ Bottom-Top</option>
+                  <option value="LR">→ Left-Right</option>
+                  <option value="RL">← Right-Left</option>
+                </select>
+              </label>
+            )}
             <span className="hv-divider" />
             <button className="hv-btn" onClick={expandAll}>Expand all</button>
             <button className="hv-btn" onClick={collapseAll}>Collapse all</button>
@@ -203,10 +223,10 @@ export default function HierarchyView({
         </header>
 
         <div
-          className={`hv-body${viewMode === 'tree' ? ' hv-body-tree' : ''}`}
+          className={`hv-body${viewMode !== 'indent' ? ' hv-body-tree' : ''}`}
           ref={treeRef}
         >
-          {roots.length === 0 ? (
+          {(viewMode === 'dagre' ? !rootIds?.length : roots.length === 0) ? (
             <EmptyState />
           ) : viewMode === 'tree' ? (
             <TreeView
@@ -218,6 +238,18 @@ export default function HierarchyView({
               tagOptions={tagOptions}
               size={bodySize}
               onMeasure={setBodySize}
+            />
+          ) : viewMode === 'dagre' ? (
+            <DagreView
+              cards={cards}
+              connectors={connectors}
+              rootIds={rootIds}
+              direction={dagreDir}
+              showMetadata={showMetadata}
+              onFocusCard={onFocusCard}
+              statusOptions={statusOptions}
+              assigneeOptions={assigneeOptions}
+              tagOptions={tagOptions}
             />
           ) : (
             roots.map((root) => (
@@ -422,6 +454,279 @@ function TreeView({ roots, showMetadata, onFocusCard, statusOptions, assigneeOpt
           // hierarchy view, so showing everything is the expected default.
           initialDepth={Infinity}
         />
+      )}
+    </div>
+  )
+}
+
+// ─── Dagre DAG view ─────────────────────────────────────────────────
+// Uses dagre to lay out the reachable subgraph from the selected roots,
+// then renders an SVG with foreignObject HTML cards and orthogonal
+// edges. Multi-parent nodes appear once (true DAG, not a tree).
+// Pan with drag, zoom with mouse wheel.
+
+const DAGRE_NODE_W = 280
+const DAGRE_NODE_H_FULL = 196
+const DAGRE_NODE_H_SLIM = 64
+
+function DagreView({ cards, connectors, rootIds, direction, showMetadata, onFocusCard, statusOptions, assigneeOptions, tagOptions }) {
+  const containerRef = useRef(null)
+  const [size, setSize] = useState({ width: 0, height: 0 })
+  // view = pan/zoom transform applied to the inner <g>
+  const [view, setView] = useState({ x: 0, y: 0, scale: 1, fitted: false })
+  const panningRef = useRef(null)
+
+  useEffect(() => {
+    if (!containerRef.current) return
+    const measure = () => {
+      const r = containerRef.current.getBoundingClientRect()
+      setSize({ width: r.width, height: r.height })
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(containerRef.current)
+    return () => ro.disconnect()
+  }, [])
+
+  const layout = useMemo(() => {
+    if (!rootIds?.length) return null
+    const { nodes, edges, cyclic } = buildSubgraph(cards, connectors, rootIds)
+    if (!nodes.length) return null
+
+    const g = new dagre.graphlib.Graph()
+    g.setGraph({
+      rankdir: direction,
+      nodesep: 28,
+      ranksep: 56,
+      marginx: 24,
+      marginy: 24,
+    })
+    g.setDefaultEdgeLabel(() => ({}))
+
+    const nodeH = showMetadata ? DAGRE_NODE_H_FULL : DAGRE_NODE_H_SLIM
+    for (const n of nodes) g.setNode(n.id, { width: DAGRE_NODE_W, height: nodeH, card: n })
+    for (const e of edges) g.setEdge(e.source, e.target)
+    dagre.layout(g)
+
+    // Bounding box of all node centres (with size) for fit-to-view.
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    const positioned = []
+    for (const id of g.nodes()) {
+      const n = g.node(id)
+      if (!n) continue
+      positioned.push({ id, x: n.x, y: n.y, w: n.width, h: n.height, card: n.card })
+      minX = Math.min(minX, n.x - n.width / 2)
+      minY = Math.min(minY, n.y - n.height / 2)
+      maxX = Math.max(maxX, n.x + n.width / 2)
+      maxY = Math.max(maxY, n.y + n.height / 2)
+    }
+    const positionedEdges = g.edges().map((e) => {
+      const ed = g.edge(e)
+      return { id: `${e.v}->${e.w}`, points: ed?.points || [] }
+    })
+    return {
+      nodes: positioned,
+      edges: positionedEdges,
+      bbox: { x: minX, y: minY, w: maxX - minX, h: maxY - minY },
+      cyclic,
+    }
+  }, [cards, connectors, rootIds, direction, showMetadata])
+
+  // Auto-fit the layout to the container the first time we have both
+  // sizes available. Subsequent direction changes also re-fit.
+  useEffect(() => {
+    if (!layout || !size.width) return
+    const pad = 40
+    const sx = (size.width - pad * 2) / Math.max(1, layout.bbox.w)
+    const sy = (size.height - pad * 2) / Math.max(1, layout.bbox.h)
+    const scale = Math.min(1, sx, sy)
+    setView({
+      scale,
+      x: (size.width - layout.bbox.w * scale) / 2 - layout.bbox.x * scale,
+      y: (size.height - layout.bbox.h * scale) / 2 - layout.bbox.y * scale,
+      fitted: true,
+    })
+  }, [layout, size.width, size.height, direction])
+
+  const onWheel = (e) => {
+    e.preventDefault()
+    const factor = Math.exp(-e.deltaY * 0.0015)
+    setView((v) => {
+      const rect = containerRef.current.getBoundingClientRect()
+      const mx = e.clientX - rect.left
+      const my = e.clientY - rect.top
+      const newScale = Math.min(3, Math.max(0.15, v.scale * factor))
+      // keep the cursor's world point fixed while zooming
+      const wx = (mx - v.x) / v.scale
+      const wy = (my - v.y) / v.scale
+      return {
+        scale: newScale,
+        x: mx - wx * newScale,
+        y: my - wy * newScale,
+        fitted: true,
+      }
+    })
+  }
+  const onMouseDown = (e) => {
+    // Skip drags that started on a node's clickable bits.
+    if (e.target.closest('.hv-tnc-title') || e.target.closest('.hv-tnc-toggle')) return
+    panningRef.current = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y }
+  }
+  const onMouseMove = (e) => {
+    if (!panningRef.current) return
+    setView((v) => ({
+      ...v,
+      x: panningRef.current.vx + (e.clientX - panningRef.current.x),
+      y: panningRef.current.vy + (e.clientY - panningRef.current.y),
+    }))
+  }
+  const onMouseUp = () => { panningRef.current = null }
+
+  if (!layout) {
+    return (
+      <div ref={containerRef} className="hv-dagre-wrap">
+        <EmptyState />
+      </div>
+    )
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      className="hv-dagre-wrap"
+      onWheel={onWheel}
+      onMouseDown={onMouseDown}
+      onMouseMove={onMouseMove}
+      onMouseUp={onMouseUp}
+      onMouseLeave={onMouseUp}
+    >
+      <svg width="100%" height="100%" className="hv-dagre-svg">
+        <defs>
+          <marker id="hv-dagre-arrow" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0 L10 5 L0 10 Z" fill="var(--text-muted)" />
+          </marker>
+        </defs>
+        <g transform={`translate(${view.x}, ${view.y}) scale(${view.scale})`}>
+          {/* Edges first so they sit beneath the cards */}
+          {layout.edges.map((e) => (
+            <path
+              key={e.id}
+              d={pointsToPath(e.points)}
+              fill="none"
+              stroke="var(--border-strong)"
+              strokeWidth={1.5}
+              markerEnd="url(#hv-dagre-arrow)"
+            />
+          ))}
+          {layout.nodes.map((n) => (
+            <foreignObject
+              key={n.id}
+              x={n.x - n.w / 2}
+              y={n.y - n.h / 2}
+              width={n.w}
+              height={n.h}
+              style={{ overflow: 'visible' }}
+            >
+              <DagreNodeCard
+                card={n.card}
+                showMetadata={showMetadata}
+                onFocusCard={onFocusCard}
+                statusOptions={statusOptions}
+                assigneeOptions={assigneeOptions}
+                tagOptions={tagOptions}
+              />
+            </foreignObject>
+          ))}
+        </g>
+      </svg>
+
+      {/* Floating mini-toolbar: zoom + reset + cyclic-edges hint */}
+      <div className="hv-dagre-controls">
+        <button className="hv-icon-btn" title="Zoom out"
+          onClick={() => setView((v) => ({ ...v, scale: Math.max(0.15, v.scale / 1.2) }))}>−</button>
+        <span className="hv-dagre-zoom">{Math.round(view.scale * 100)}%</span>
+        <button className="hv-icon-btn" title="Zoom in"
+          onClick={() => setView((v) => ({ ...v, scale: Math.min(3, v.scale * 1.2) }))}>+</button>
+        <button className="hv-icon-btn" title="Fit to screen"
+          onClick={() => setView((v) => ({ ...v, fitted: false }))} >⊡</button>
+        {layout.cyclic.length > 0 && (
+          <span className="hv-dagre-warn" title={`Hidden cyclic edges:\n${layout.cyclic.map(([s, t]) => `${s} → ${t}`).join('\n')}`}>
+            ⟲ {layout.cyclic.length} hidden
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Convert dagre's edge points into a smooth orthogonal SVG path.
+function pointsToPath(points) {
+  if (!points || points.length === 0) return ''
+  // Use cardinal-spline-style "M / L" for crispness.
+  let d = `M ${points[0].x} ${points[0].y}`
+  for (let i = 1; i < points.length; i++) {
+    d += ` L ${points[i].x} ${points[i].y}`
+  }
+  return d
+}
+
+// Reuse the same card layout as TreeNodeCard but keyed off a raw card
+// (Dagre walks the graph directly — no TreeNode placeholders).
+function DagreNodeCard({ card, showMetadata, onFocusCard, statusOptions, assigneeOptions, tagOptions }) {
+  if (!card) return null
+  const statusDot   = card.status   ? getStatusColor(card.status, statusOptions)        : null
+  const assigneeDot = card.assignee ? getOptionColor(card.assignee, assigneeOptions)    : null
+  const tag         = card.tags?.[0]
+  const tagDot      = tag ? getOptionColor(tag, tagOptions)                              : null
+  const dateRange   = card.start_date || card.end_date
+    ? `${card.start_date || '?'} → ${card.end_date || '?'}`
+    : null
+  const previewText = card.description?.html
+    ? String(card.description.html).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 110)
+    : ''
+
+  return (
+    <div className="hv-tnc" style={{ borderTopColor: card.color || 'var(--accent)' }}>
+      <div className="hv-tnc-row">
+        <span className="hv-color-dot" style={{ background: card.color || '#cbd5e1' }} />
+        <button
+          type="button"
+          className="hv-tnc-title"
+          onClick={(e) => { e.stopPropagation(); onFocusCard?.(card.id) }}
+          title="Focus on canvas"
+        >
+          {card.title || (card.node_shape === 'text' ? 'Text' : 'Untitled')}
+        </button>
+      </div>
+
+      {showMetadata && (
+        <div className="hv-tnc-meta">
+          {card.status && (
+            <span className="hv-pill"><span className="hv-dot" style={{ background: statusDot }} />{card.status}</span>
+          )}
+          {card.assignee && (
+            <span className="hv-pill"><span className="hv-dot" style={{ background: assigneeDot }} />@{card.assignee}</span>
+          )}
+          {tag && (
+            <span className="hv-pill">
+              <span className="hv-dot" style={{ background: tagDot }} />
+              #{tag}{card.tags.length > 1 ? ` +${card.tags.length - 1}` : ''}
+            </span>
+          )}
+          {card.estimate != null && card.estimate !== '' && (
+            <span className="hv-pill">{card.estimate}p</span>
+          )}
+          {dateRange && (
+            <span className="hv-pill">{dateRange}</span>
+          )}
+          {card.node_shape && card.node_shape !== 'rect' && (
+            <span className="hv-pill subtle">{card.node_shape}</span>
+          )}
+          {previewText && (
+            <div className="hv-tnc-preview" title={previewText}>{previewText}</div>
+          )}
+        </div>
       )}
     </div>
   )

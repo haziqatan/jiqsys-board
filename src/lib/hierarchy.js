@@ -124,6 +124,90 @@ export function collectExpandableIds(roots) {
 }
 
 /**
+ * Reachability subgraph from a set of roots.
+ *
+ * Used for the Dagre / DAG layout — unlike `buildHierarchy` which converts
+ * the graph to a strict tree (with "Already shown" / "Cycle" placeholders),
+ * Dagre handles multi-parent and acyclic DAGs natively. We simply walk
+ * every node reachable along outgoing edges and emit the unique nodes and
+ * edges that fall inside the visited set.
+ *
+ * Self-loops and back-edges of cycles are dropped before handing off to
+ * Dagre (it requires a DAG; cycles would throw / mis-layout).
+ *
+ * @returns {{ nodes: Card[], edges: { id: string, source: string, target: string }[], cyclic: string[][] }}
+ *   `cyclic` is the list of edges that were dropped because they'd close
+ *   a cycle, so the UI can warn ("3 connectors hidden to keep layout DAG-clean").
+ */
+export function buildSubgraph(cards, connectors, rootIds) {
+  const cardsById = new Map(cards.map((c) => [c.id, c]))
+  const outgoing = new Map()
+  for (const conn of connectors) {
+    if (!cardsById.has(conn.source_card_id) || !cardsById.has(conn.target_card_id)) continue
+    if (!outgoing.has(conn.source_card_id)) outgoing.set(conn.source_card_id, [])
+    outgoing.get(conn.source_card_id).push(conn)
+  }
+
+  // BFS to collect every card reachable from any root.
+  const reachable = new Set()
+  const queue = []
+  for (const id of rootIds) {
+    if (cardsById.has(id) && !reachable.has(id)) {
+      reachable.add(id)
+      queue.push(id)
+    }
+  }
+  while (queue.length) {
+    const id = queue.shift()
+    for (const conn of outgoing.get(id) || []) {
+      if (!reachable.has(conn.target_card_id)) {
+        reachable.add(conn.target_card_id)
+        queue.push(conn.target_card_id)
+      }
+    }
+  }
+
+  // DFS rank assignment (path-from-root depth); used to detect & drop
+  // back-edges that would form cycles. Edges from later-rank → earlier-
+  // rank are treated as back-edges.
+  const rank = new Map()
+  const visited = new Set()
+  const onStack = new Set()
+  const cyclic = []
+
+  const dfs = (id, depth) => {
+    rank.set(id, Math.max(depth, rank.get(id) ?? 0))
+    onStack.add(id)
+    visited.add(id)
+    for (const conn of outgoing.get(id) || []) {
+      const t = conn.target_card_id
+      if (onStack.has(t)) {
+        // Back-edge → cycle; remember and skip.
+        cyclic.push([conn.source_card_id, conn.target_card_id])
+        continue
+      }
+      if (!visited.has(t)) dfs(t, depth + 1)
+    }
+    onStack.delete(id)
+  }
+  for (const id of rootIds) if (reachable.has(id)) dfs(id, 0)
+
+  const cyclicKeys = new Set(cyclic.map(([s, t]) => `${s}->${t}`))
+  const nodes = [...reachable].map((id) => cardsById.get(id))
+  const edges = []
+  for (const id of reachable) {
+    for (const conn of outgoing.get(id) || []) {
+      if (!reachable.has(conn.target_card_id)) continue
+      if (conn.source_card_id === conn.target_card_id) continue   // self-loop
+      const key = `${conn.source_card_id}->${conn.target_card_id}`
+      if (cyclicKeys.has(key)) continue
+      edges.push({ id: conn.id, source: conn.source_card_id, target: conn.target_card_id })
+    }
+  }
+  return { nodes, edges, cyclic }
+}
+
+/**
  * Serialise the tree to a plain JSON-friendly structure for export. We strip
  * runtime-only fields (treeId, depth, refs to original card) and keep the
  * card metadata that matters for downstream tooling.

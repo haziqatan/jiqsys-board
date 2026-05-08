@@ -22,6 +22,7 @@
     "@tiptap/react": "^3.22.5",
     "@tiptap/starter-kit": "^3.22.5",
     "autoprefixer": "^10.5.0",
+    "dagre": "^0.8.5",
     "html-to-image": "^1.11.13",
     "lowlight": "^3.3.0",
     "postcss": "^8.5.13",
