@@ -373,15 +373,16 @@ function Row({ node, expanded, onToggle, showMetadata, expandedMetaIds, onToggle
 function Metadata({ card, expanded, onToggle, statusOptions, assigneeOptions, tagOptions }) {
   const statusDot   = card.status   ? getStatusColor(card.status, statusOptions)        : null
   const assigneeDot = card.assignee ? getOptionColor(card.assignee, assigneeOptions)    : null
-  const allTags     = card.tags || []
+  const allTags     = card.tags     || []
   const dateRange   = card.start_date || card.end_date
     ? `${card.start_date || '?'} → ${card.end_date || '?'}`
     : null
 
-  const previewSrc = card.description?.html || ''
-  const previewLen = expanded ? 240 : 80
-  const previewText = previewSrc
-    ? String(previewSrc).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, previewLen)
+  const html = card.description?.html || ''
+  // 1-line plain-text peek for the collapsed state — short signal that
+  // there's content; user clicks the chevron to see the full thing.
+  const peek = html
+    ? String(html).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80)
     : ''
 
   // Whether this card has any "extra" metadata that's only worth seeing
@@ -390,7 +391,7 @@ function Metadata({ card, expanded, onToggle, statusOptions, assigneeOptions, ta
     allTags.length > 1 ||
     !!dateRange ||
     (card.node_shape && card.node_shape !== 'rect') ||
-    !!previewText ||
+    !!html ||
     !!card.assignee
 
   return (
@@ -425,8 +426,19 @@ function Metadata({ card, expanded, onToggle, statusOptions, assigneeOptions, ta
         <span className="hv-pill subtle">{card.node_shape}</span>
       )}
 
-      {previewText && (
-        <span className="hv-preview" title={previewText}>{previewText}</span>
+      {/* ── Description ────────────────────────────────────────────
+         Collapsed: 1-line plain peek (just enough to know there's content).
+         Expanded:  the FULL TipTap HTML rendered inline so paragraphs,
+                    bullet lists, ordered lists, task-list checkboxes, and
+                    images all show as their own elements. */}
+      {!expanded && peek && (
+        <span className="hv-preview" title={peek}>{peek}</span>
+      )}
+      {expanded && html && (
+        <div
+          className="hv-rich"
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
       )}
 
       {hasExtras && (
@@ -803,50 +815,64 @@ function DagreNodeCard({ card, expanded, onToggleMeta, showMetadata, onFocusCard
 }
 
 // ─── Shared metadata body for Tree + Dagre cards ────────────────────
-// Same field selection as the indent <Metadata /> component, but laid
-// out for a card (vertical stack of rows) instead of an inline pill row.
+// Same field selection as the indent <Metadata /> component but laid
+// out for a card (vertical stack of rows). Description content is
+// rendered via dangerouslySetInnerHTML so bullet lists, numbered lists,
+// task-list checkboxes, and images come through as proper elements.
+// In collapsed state we show a short plain peek; expanded shows the
+// full HTML with the card body acting as a scroll container so very
+// long descriptions don't blow out the spatial layout.
 function CardMetaBody({ card, expanded, statusOptions, assigneeOptions, tagOptions }) {
   const statusDot   = card.status   ? getStatusColor(card.status, statusOptions)        : null
   const assigneeDot = card.assignee ? getOptionColor(card.assignee, assigneeOptions)    : null
-  const allTags     = card.tags || []
+  const allTags     = card.tags     || []
   const dateRange   = card.start_date || card.end_date
     ? `${card.start_date || '?'} → ${card.end_date || '?'}`
     : null
-  const previewLen  = expanded ? 280 : 100
-  const previewText = card.description?.html
-    ? String(card.description.html).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, previewLen)
+  const html = card.description?.html || ''
+  const peek = !expanded && html
+    ? String(html).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 100)
     : ''
+
   return (
     <div className={`hv-tnc-meta${expanded ? ' expanded' : ''}`}>
-      {card.status && (
-        <span className="hv-pill"><span className="hv-dot" style={{ background: statusDot }} />{card.status}</span>
+      <div className="hv-tnc-pills">
+        {card.status && (
+          <span className="hv-pill"><span className="hv-dot" style={{ background: statusDot }} />{card.status}</span>
+        )}
+        {(expanded || allTags.length === 0) && card.assignee && (
+          <span className="hv-pill"><span className="hv-dot" style={{ background: assigneeDot }} />@{card.assignee}</span>
+        )}
+        {!expanded && allTags[0] && (
+          <span className="hv-pill">
+            <span className="hv-dot" style={{ background: getOptionColor(allTags[0], tagOptions) }} />
+            #{allTags[0]}{allTags.length > 1 ? ` +${allTags.length - 1}` : ''}
+          </span>
+        )}
+        {card.estimate != null && card.estimate !== '' && (
+          <span className="hv-pill">{card.estimate}p</span>
+        )}
+        {expanded && allTags.map((t) => (
+          <span key={t} className="hv-pill">
+            <span className="hv-dot" style={{ background: getOptionColor(t, tagOptions) }} />#{t}
+          </span>
+        ))}
+        {expanded && dateRange && (
+          <span className="hv-pill">{dateRange}</span>
+        )}
+        {expanded && card.node_shape && card.node_shape !== 'rect' && (
+          <span className="hv-pill subtle">{card.node_shape}</span>
+        )}
+      </div>
+
+      {peek && (
+        <div className="hv-tnc-preview" title={peek}>{peek}</div>
       )}
-      {(expanded || allTags.length === 0) && card.assignee && (
-        <span className="hv-pill"><span className="hv-dot" style={{ background: assigneeDot }} />@{card.assignee}</span>
-      )}
-      {!expanded && allTags[0] && (
-        <span className="hv-pill">
-          <span className="hv-dot" style={{ background: getOptionColor(allTags[0], tagOptions) }} />
-          #{allTags[0]}{allTags.length > 1 ? ` +${allTags.length - 1}` : ''}
-        </span>
-      )}
-      {card.estimate != null && card.estimate !== '' && (
-        <span className="hv-pill">{card.estimate}p</span>
-      )}
-      {/* Extras (only when expanded) */}
-      {expanded && allTags.map((t) => (
-        <span key={t} className="hv-pill">
-          <span className="hv-dot" style={{ background: getOptionColor(t, tagOptions) }} />#{t}
-        </span>
-      ))}
-      {expanded && dateRange && (
-        <span className="hv-pill">{dateRange}</span>
-      )}
-      {expanded && card.node_shape && card.node_shape !== 'rect' && (
-        <span className="hv-pill subtle">{card.node_shape}</span>
-      )}
-      {previewText && (
-        <div className="hv-tnc-preview" title={previewText}>{previewText}</div>
+      {expanded && html && (
+        <div
+          className="hv-rich hv-tnc-rich"
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
       )}
     </div>
   )
