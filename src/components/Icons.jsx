@@ -402,3 +402,17 @@ export const IconTable = (p) => (
     <path d="M3 10h18M3 15h18M9 5v14M15 5v14" />
   </svg>
 )
+
+export const IconHierarchy = (p) => (
+  <svg {...base} {...p}>
+    {/* root */}
+    <rect x="9.5" y="3"  width="5" height="4" rx="1.2" {...duo} />
+    <rect x="9.5" y="3"  width="5" height="4" rx="1.2" />
+    {/* children */}
+    <rect x="3"   y="17" width="5" height="4" rx="1.2" />
+    <rect x="9.5" y="17" width="5" height="4" rx="1.2" />
+    <rect x="16"  y="17" width="5" height="4" rx="1.2" />
+    {/* connectors */}
+    <path d="M12 7v4M5.5 17V12.5h13V17" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)

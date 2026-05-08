@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import {
-  IconCursor, IconCard, IconText, IconTable,
+  IconCursor, IconCard, IconText, IconTable, IconHierarchy,
   IconShapes, IconRectangle, IconSquare,
   IconCircle, IconDiamond, IconHexagon, IconParallelogram,
   IconTriangle, IconStar, IconArrowShape,
@@ -19,7 +19,7 @@ const SHAPE_TOOLS = [
   { id: 'card-arrow',      label: 'Arrow',         Icon: IconArrowShape },
 ]
 
-export default function Toolbar({ tool, setTool }) {
+export default function Toolbar({ tool, setTool, onOpenHierarchy }) {
   const [pickerOpen, setPickerOpen] = useState(false)
   const pickerRef = useRef(null)
 
@@ -109,6 +109,17 @@ export default function Toolbar({ tool, setTool }) {
           </div>
         )}
       </div>
+
+      <div className="toolbar-divider" />
+
+      <button
+        className="tool-btn"
+        onClick={() => { setPickerOpen(false); onOpenHierarchy?.() }}
+        aria-label="View as hierarchy"
+      >
+        <IconHierarchy />
+        <span className="tool-tooltip">Hierarchy <kbd>⌘H</kbd></span>
+      </button>
     </div>
   )
 }

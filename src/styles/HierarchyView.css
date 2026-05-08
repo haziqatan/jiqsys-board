@@ -1,0 +1,252 @@
+/* ─── Modal shell ────────────────────────────────────────────────── */
+.hv-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 800;
+  background: rgba(15, 20, 35, 0.36);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: hv-fade-in 180ms var(--ease);
+}
+@keyframes hv-fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+.hv-modal {
+  width: min(960px, 100%);
+  max-height: 88vh;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg), 0 0 0 1px rgba(15, 20, 35, 0.06);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: hv-scale-in 200ms var(--ease);
+}
+@keyframes hv-scale-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.985); }
+  to   { opacity: 1; transform: translateY(0)   scale(1); }
+}
+
+/* ─── Header ──────────────────────────────────────────────────────── */
+.hv-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+  flex-wrap: wrap;
+}
+.hv-title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.hv-title h2 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+}
+.hv-subtitle { font-size: 12px; color: var(--text-muted); }
+
+.hv-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.hv-btn {
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  font-size: 12.5px;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 100ms var(--ease), border-color 100ms var(--ease);
+}
+.hv-btn:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-strong); }
+.hv-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.hv-btn:disabled:hover { background: var(--surface); border-color: var(--border); color: var(--text); }
+
+.hv-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  user-select: none;
+}
+.hv-toggle select {
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  font-size: 12px;
+  color: var(--text);
+}
+.hv-divider { width: 1px; height: 22px; background: var(--border); margin: 0 4px; }
+
+.hv-icon-btn {
+  width: 28px;
+  height: 28px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.hv-icon-btn:hover { background: var(--surface); border-color: var(--border); color: var(--text); }
+
+/* ─── Body & rows ─────────────────────────────────────────────────── */
+.hv-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 8px 14px;
+  background: var(--surface);
+}
+
+.hv-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  padding: 4px 8px 4px 0;
+  border-radius: 6px;
+  transition: background 100ms var(--ease);
+}
+.hv-row:hover { background: var(--surface-2); }
+.hv-row.placeholder { color: var(--text-muted); font-style: italic; }
+.hv-row.cycle { color: #b42318; }
+
+.hv-disclosure {
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 120ms var(--ease), background 100ms var(--ease);
+}
+.hv-disclosure.empty { cursor: default; opacity: 0.25; }
+.hv-disclosure.expanded { transform: rotate(90deg); }
+.hv-disclosure:not(.empty):hover { background: var(--accent-soft); color: var(--accent-strong); }
+
+.hv-color-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid rgba(15, 20, 35, 0.08);
+  flex-shrink: 0;
+}
+
+.hv-row-title {
+  border: none;
+  background: transparent;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  max-width: 28em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hv-row-title:hover {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+.hv-row.placeholder .hv-row-title { cursor: default; }
+.hv-row.placeholder .hv-row-title:hover { background: transparent; color: inherit; }
+
+.hv-badge {
+  font-size: 10.5px;
+  font-weight: 500;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+.hv-badge.danger {
+  background: #fef3f2;
+  color: #b42318;
+  border-color: #fecdca;
+}
+
+.hv-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  margin-left: auto;
+  padding-left: 12px;
+}
+.hv-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  padding: 2px 8px;
+  border-radius: 999px;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+.hv-pill .hv-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+}
+.hv-preview {
+  font-size: 11.5px;
+  color: var(--text-soft);
+  font-style: italic;
+  max-width: 26em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hv-children { /* hooks for future indent guides if wanted */ }
+
+.hv-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--text-muted);
+}
+.hv-empty-title {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.hv-empty p { margin: 0; font-size: 13px; }

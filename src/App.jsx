@@ -4,6 +4,7 @@ import Toolbar from './components/Toolbar'
 import CardDetail from './components/CardDetail'
 import BoardMenu from './components/BoardMenu'
 import SearchBar from './components/SearchBar'
+import HierarchyView from './components/HierarchyView'
 import {
   ensureBoard,
   fetchCards,
@@ -68,6 +69,7 @@ export default function App() {
   const [assigneeOptions, setAssigneeOptions] = useState(() => loadOptions(ASSIGNEE_OPTIONS_KEY))
   const [tagOptions, setTagOptions] = useState(() => loadOptions(TAG_OPTIONS_KEY))
   const [searchOpen, setSearchOpen] = useState(false)
+  const [hierarchyOpen, setHierarchyOpen] = useState(false)
   // Bumped each time the user navigates to a new search hit. Canvas listens
   // to this and animates the view to centre the focused card; we use an
   // incrementing token so re-clicking the same result still re-pans.
@@ -97,12 +99,21 @@ export default function App() {
     if (boardId) localStorage.setItem(ACTIVE_BOARD_KEY, boardId)
   }, [boardId])
 
-  // Cmd/Ctrl+F → toggle search bar (intercepts browser's find)
+  // Keyboard shortcuts:
+  //   Cmd/Ctrl+F → toggle search bar (intercepts browser's find)
+  //   Cmd/Ctrl+H → toggle hierarchy view of current selection
   useEffect(() => {
+    const isTyping = (el) =>
+      el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)
     const onKey = (e) => {
+      if (isTyping(e.target)) return
       if ((e.metaKey || e.ctrlKey) && (e.key === 'f' || e.key === 'F')) {
         e.preventDefault()
         setSearchOpen((open) => !open)
+      }
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'h' || e.key === 'H')) {
+        e.preventDefault()
+        setHierarchyOpen((open) => !open)
       }
     }
     window.addEventListener('keydown', onKey)
@@ -798,7 +809,25 @@ export default function App() {
         focusRequest={focusRequest}
       />
 
-      <Toolbar tool={tool} setTool={setTool} />
+      <Toolbar
+        tool={tool}
+        setTool={setTool}
+        onOpenHierarchy={() => setHierarchyOpen(true)}
+      />
+
+      <HierarchyView
+        open={hierarchyOpen}
+        onClose={() => setHierarchyOpen(false)}
+        cards={cards}
+        connectors={connectors}
+        // If the user has a multi-select, every selected card becomes a
+        // tree root; otherwise an empty hierarchy + helpful empty state.
+        rootIds={selectedIds}
+        onFocusCard={handleFocusCard}
+        statusOptions={statusOptions}
+        assigneeOptions={assigneeOptions}
+        tagOptions={tagOptions}
+      />
 
       <SearchBar
         open={searchOpen}
