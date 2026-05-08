@@ -203,6 +203,39 @@
   margin-left: auto;
   padding-left: 12px;
 }
+.hv-meta.expanded {
+  /* When fully expanded an indent row's metadata can wrap to multiple
+     lines — give it room to breathe and a soft separator. */
+  flex-wrap: wrap;
+  padding-top: 4px;
+  margin-top: 2px;
+}
+.hv-row.meta-expanded { align-items: flex-start; }
+.hv-row.meta-expanded .hv-disclosure,
+.hv-row.meta-expanded .hv-color-dot,
+.hv-row.meta-expanded .hv-row-title { margin-top: 4px; }
+
+.hv-meta-toggle {
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface);
+  font-size: 11px;
+  line-height: 1;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 100ms var(--ease), color 100ms var(--ease);
+  flex-shrink: 0;
+}
+.hv-meta-toggle:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
 .hv-pill {
   display: inline-flex;
   align-items: center;
@@ -369,7 +402,8 @@
 .hv-tnc-title:hover { color: var(--accent-strong); }
 .hv-tnc.placeholder .hv-tnc-title { cursor: default; color: inherit; font-weight: 500; }
 
-.hv-tnc-toggle {
+.hv-tnc-toggle,
+.hv-tnc-meta-btn {
   width: 18px;
   height: 18px;
   border: 1px solid var(--border);
@@ -385,10 +419,23 @@
   flex-shrink: 0;
   transition: background 100ms var(--ease), color 100ms var(--ease);
 }
-.hv-tnc-toggle:hover {
+.hv-tnc-toggle:hover,
+.hv-tnc-meta-btn:hover {
   background: var(--accent-soft);
   color: var(--accent-strong);
   border-color: var(--accent);
+}
+.hv-tnc-meta-btn { font-size: 10px; border-radius: 5px; }
+.hv-tnc.meta-expanded { box-shadow: var(--shadow-md); }
+.hv-tnc.meta-expanded .hv-tnc-meta {
+  /* When expanded the body can hold multiple pill rows + a longer
+     content preview; let it scroll within the fixed card if it
+     overflows so the surrounding tree layout doesn't shift. */
+  overflow-y: auto;
+  flex: 1;
+}
+.hv-tnc.meta-expanded .hv-tnc-preview {
+  -webkit-line-clamp: 6;
 }
 
 .hv-tnc-meta {

@@ -58,6 +58,25 @@ export default function HierarchyView({
   tagOptions = [],
 }) {
   const [showMetadata, setShowMetadata] = useState(true)
+  // Per-card "full metadata" state. Each card starts in compact preview
+  // (title + 2-3 key pills); clicking the chevron on a card flips it to
+  // full (every tag, dates, shape, long content preview). Keyed by
+  // cardId so the choice carries across the three views and across
+  // multi-parent occurrences in tree/indent.
+  const [expandedMetaIds, setExpandedMetaIds] = useState(() => new Set())
+  const toggleMeta = (cardId) =>
+    setExpandedMetaIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(cardId)) next.delete(cardId)
+      else next.add(cardId)
+      return next
+    })
+  const expandAllMeta = () => {
+    const ids = new Set()
+    for (const c of cards) ids.add(c.id)
+    setExpandedMetaIds(ids)
+  }
+  const collapseAllMeta = () => setExpandedMetaIds(new Set())
   // View mode: "indent" (rows) | "tree" (react-d3-tree) | "dagre" (DAG layout)
   const [viewMode, setViewMode] = useState('indent')
   // Dagre layout direction: TB (top-to-bottom) | LR (left-to-right)
@@ -202,6 +221,16 @@ export default function HierarchyView({
               />
               Metadata
             </label>
+            {showMetadata && (
+              <>
+                <button className="hv-btn" onClick={expandAllMeta} title="Show full metadata on every card">
+                  Show all meta
+                </button>
+                <button className="hv-btn" onClick={collapseAllMeta} title="Collapse to preview on every card">
+                  Hide all meta
+                </button>
+              </>
+            )}
             <label className="hv-toggle" title="How to handle nodes with multiple parents">
               <select
                 value={duplicateMode}
@@ -232,6 +261,8 @@ export default function HierarchyView({
             <TreeView
               roots={roots}
               showMetadata={showMetadata}
+              expandedMetaIds={expandedMetaIds}
+              onToggleMeta={toggleMeta}
               onFocusCard={onFocusCard}
               statusOptions={statusOptions}
               assigneeOptions={assigneeOptions}
@@ -246,6 +277,8 @@ export default function HierarchyView({
               rootIds={rootIds}
               direction={dagreDir}
               showMetadata={showMetadata}
+              expandedMetaIds={expandedMetaIds}
+              onToggleMeta={toggleMeta}
               onFocusCard={onFocusCard}
               statusOptions={statusOptions}
               assigneeOptions={assigneeOptions}
@@ -259,6 +292,8 @@ export default function HierarchyView({
                 expandedIds={expandedIds}
                 onToggle={toggle}
                 showMetadata={showMetadata}
+                expandedMetaIds={expandedMetaIds}
+                onToggleMeta={toggleMeta}
                 onFocusCard={onFocusCard}
                 statusOptions={statusOptions}
                 assigneeOptions={assigneeOptions}
@@ -290,10 +325,11 @@ function Branch({ node, expandedIds, onToggle, ...rest }) {
 }
 
 // ─── One row ────────────────────────────────────────────────────────
-function Row({ node, expanded, onToggle, showMetadata, onFocusCard, statusOptions, assigneeOptions, tagOptions }) {
+function Row({ node, expanded, onToggle, showMetadata, expandedMetaIds, onToggleMeta, onFocusCard, statusOptions, assigneeOptions, tagOptions }) {
   const card = node.card
   const hasChildren = node.children.length > 0
   const isPlaceholder = node.isAlreadyShown || node.isCycle
+  const metaExpanded = card ? expandedMetaIds?.has(card.id) : false
 
   const handleRowClick = () => {
     if (isPlaceholder) return
@@ -302,7 +338,7 @@ function Row({ node, expanded, onToggle, showMetadata, onFocusCard, statusOption
 
   return (
     <div
-      className={`hv-row${isPlaceholder ? ' placeholder' : ''}${node.isCycle ? ' cycle' : ''}`}
+      className={`hv-row${isPlaceholder ? ' placeholder' : ''}${node.isCycle ? ' cycle' : ''}${metaExpanded ? ' meta-expanded' : ''}`}
       style={{ paddingLeft: 12 + node.depth * 22 }}
     >
       <button
@@ -322,6 +358,8 @@ function Row({ node, expanded, onToggle, showMetadata, onFocusCard, statusOption
       {showMetadata && !isPlaceholder && card && (
         <Metadata
           card={card}
+          expanded={metaExpanded}
+          onToggle={() => onToggleMeta?.(card.id)}
           statusOptions={statusOptions}
           assigneeOptions={assigneeOptions}
           tagOptions={tagOptions}
@@ -331,41 +369,76 @@ function Row({ node, expanded, onToggle, showMetadata, onFocusCard, statusOption
   )
 }
 
-// ─── Metadata pill row ───────────────────────────────────────────────
-function Metadata({ card, statusOptions, assigneeOptions, tagOptions }) {
-  const statusDot = card.status ? getStatusColor(card.status, statusOptions) : null
-  const assigneeDot = card.assignee ? getOptionColor(card.assignee, assigneeOptions) : null
-  const tag = card.tags?.[0]
-  const tagDot = tag ? getOptionColor(tag, tagOptions) : null
-  const dateRange = card.start_date || card.end_date
+// ─── Metadata pills row (with per-card preview ⇄ full toggle) ───────
+function Metadata({ card, expanded, onToggle, statusOptions, assigneeOptions, tagOptions }) {
+  const statusDot   = card.status   ? getStatusColor(card.status, statusOptions)        : null
+  const assigneeDot = card.assignee ? getOptionColor(card.assignee, assigneeOptions)    : null
+  const allTags     = card.tags || []
+  const dateRange   = card.start_date || card.end_date
     ? `${card.start_date || '?'} → ${card.end_date || '?'}`
     : null
 
-  // Strip HTML tags + collapse whitespace for the description preview.
   const previewSrc = card.description?.html || ''
+  const previewLen = expanded ? 240 : 80
   const previewText = previewSrc
-    ? String(previewSrc).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80)
+    ? String(previewSrc).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, previewLen)
     : ''
 
+  // Whether this card has any "extra" metadata that's only worth seeing
+  // in the expanded view — drives whether the chevron renders at all.
+  const hasExtras =
+    allTags.length > 1 ||
+    !!dateRange ||
+    (card.node_shape && card.node_shape !== 'rect') ||
+    !!previewText ||
+    !!card.assignee
+
   return (
-    <div className="hv-meta">
+    <div className={`hv-meta${expanded ? ' expanded' : ''}`}>
+      {/* ── Always-visible "preview" pills ─────────────────────────── */}
       {card.status && (
         <span className="hv-pill"><span className="hv-dot" style={{ background: statusDot }} />{card.status}</span>
       )}
-      {card.assignee && (
+      {card.assignee && (expanded || allTags.length === 0) && (
         <span className="hv-pill"><span className="hv-dot" style={{ background: assigneeDot }} />@{card.assignee}</span>
       )}
-      {tag && (
-        <span className="hv-pill"><span className="hv-dot" style={{ background: tagDot }} />#{tag}{card.tags.length > 1 ? ` +${card.tags.length - 1}` : ''}</span>
+      {!expanded && allTags[0] && (
+        <span className="hv-pill">
+          <span className="hv-dot" style={{ background: getOptionColor(allTags[0], tagOptions) }} />
+          #{allTags[0]}{allTags.length > 1 ? ` +${allTags.length - 1}` : ''}
+        </span>
       )}
       {card.estimate != null && card.estimate !== '' && (
         <span className="hv-pill">{card.estimate}p</span>
       )}
-      {dateRange && (
+
+      {/* ── Extras (only when expanded) ───────────────────────────── */}
+      {expanded && allTags.length > 0 && allTags.map((t) => (
+        <span key={t} className="hv-pill">
+          <span className="hv-dot" style={{ background: getOptionColor(t, tagOptions) }} />#{t}
+        </span>
+      ))}
+      {expanded && dateRange && (
         <span className="hv-pill">{dateRange}</span>
       )}
+      {expanded && card.node_shape && card.node_shape !== 'rect' && (
+        <span className="hv-pill subtle">{card.node_shape}</span>
+      )}
+
       {previewText && (
         <span className="hv-preview" title={previewText}>{previewText}</span>
+      )}
+
+      {hasExtras && (
+        <button
+          type="button"
+          className="hv-meta-toggle"
+          title={expanded ? 'Show preview only' : 'Show full metadata'}
+          aria-label={expanded ? 'Collapse metadata' : 'Expand metadata'}
+          onClick={(e) => { e.stopPropagation(); onToggle?.() }}
+        >
+          {expanded ? '▴' : '▾'}
+        </button>
       )}
     </div>
   )
@@ -386,7 +459,7 @@ function EmptyState() {
 // Supports drag-to-pan, scroll-to-zoom, and click-to-collapse natively
 // from the library; we add click-on-title → focus card on canvas.
 
-function TreeView({ roots, showMetadata, onFocusCard, statusOptions, assigneeOptions, tagOptions, size, onMeasure }) {
+function TreeView({ roots, showMetadata, expandedMetaIds, onToggleMeta, onFocusCard, statusOptions, assigneeOptions, tagOptions, size, onMeasure }) {
   const containerRef = useRef(null)
   const data = useMemo(() => toRd3Forest(roots), [roots])
 
@@ -406,11 +479,14 @@ function TreeView({ roots, showMetadata, onFocusCard, statusOptions, assigneeOpt
     return () => ro.disconnect()
   }, [onMeasure])
 
-  const nodeSize = { x: 320, y: showMetadata ? 220 : 120 }
+  // If ANY card has its metadata expanded, give every card the larger
+  // size so react-d3-tree (which only supports one global node size)
+  // has room. Cards in preview mode just have whitespace below.
+  const anyMetaExpanded = expandedMetaIds && expandedMetaIds.size > 0
+  const showFull = showMetadata && anyMetaExpanded
+  const nodeSize = { x: 320, y: !showMetadata ? 120 : showFull ? 320 : 220 }
   const cardW = 280
-  // Approximate render height of a node card so the foreignObject crops
-  // cleanly. Slight overshoot is fine — overflow is hidden by the card.
-  const cardH = showMetadata ? 196 : 92
+  const cardH = !showMetadata ? 92 : showFull ? 296 : 196
 
   // Memoise the renderer so react-d3-tree doesn't unmount nodes between
   // renders (it uses === reference equality on the prop).
@@ -426,6 +502,8 @@ function TreeView({ roots, showMetadata, onFocusCard, statusOptions, assigneeOpt
         <TreeNodeCard
           datum={nodeDatum}
           showMetadata={showMetadata}
+          expandedMetaIds={expandedMetaIds}
+          onToggleMeta={onToggleMeta}
           toggleNode={toggleNode}
           onFocusCard={onFocusCard}
           statusOptions={statusOptions}
@@ -435,7 +513,7 @@ function TreeView({ roots, showMetadata, onFocusCard, statusOptions, assigneeOpt
       </foreignObject>
     )
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showMetadata, statusOptions, assigneeOptions, tagOptions, onFocusCard])
+  }, [showMetadata, expandedMetaIds, onToggleMeta, statusOptions, assigneeOptions, tagOptions, onFocusCard, cardW, cardH])
 
   return (
     <div ref={containerRef} className="hv-tree-wrap">
@@ -469,7 +547,7 @@ const DAGRE_NODE_W = 280
 const DAGRE_NODE_H_FULL = 196
 const DAGRE_NODE_H_SLIM = 64
 
-function DagreView({ cards, connectors, rootIds, direction, showMetadata, onFocusCard, statusOptions, assigneeOptions, tagOptions }) {
+function DagreView({ cards, connectors, rootIds, direction, showMetadata, expandedMetaIds, onToggleMeta, onFocusCard, statusOptions, assigneeOptions, tagOptions }) {
   const containerRef = useRef(null)
   const [size, setSize] = useState({ width: 0, height: 0 })
   // view = pan/zoom transform applied to the inner <g>
@@ -503,8 +581,18 @@ function DagreView({ cards, connectors, rootIds, direction, showMetadata, onFocu
     })
     g.setDefaultEdgeLabel(() => ({}))
 
-    const nodeH = showMetadata ? DAGRE_NODE_H_FULL : DAGRE_NODE_H_SLIM
-    for (const n of nodes) g.setNode(n.id, { width: DAGRE_NODE_W, height: nodeH, card: n })
+    // Per-card height: cards with metadata expanded are taller. This
+    // re-runs dagre's layout whenever a user toggles a card, so the
+    // graph stays cleanly spaced.
+    for (const n of nodes) {
+      const expanded = !!expandedMetaIds?.has(n.id)
+      const h = !showMetadata
+        ? DAGRE_NODE_H_SLIM
+        : expanded
+        ? DAGRE_NODE_H_FULL + 100
+        : DAGRE_NODE_H_FULL
+      g.setNode(n.id, { width: DAGRE_NODE_W, height: h, card: n, expanded })
+    }
     for (const e of edges) g.setEdge(e.source, e.target)
     dagre.layout(g)
 
@@ -514,7 +602,7 @@ function DagreView({ cards, connectors, rootIds, direction, showMetadata, onFocu
     for (const id of g.nodes()) {
       const n = g.node(id)
       if (!n) continue
-      positioned.push({ id, x: n.x, y: n.y, w: n.width, h: n.height, card: n.card })
+      positioned.push({ id, x: n.x, y: n.y, w: n.width, h: n.height, card: n.card, expanded: n.expanded })
       minX = Math.min(minX, n.x - n.width / 2)
       minY = Math.min(minY, n.y - n.height / 2)
       maxX = Math.max(maxX, n.x + n.width / 2)
@@ -530,7 +618,7 @@ function DagreView({ cards, connectors, rootIds, direction, showMetadata, onFocu
       bbox: { x: minX, y: minY, w: maxX - minX, h: maxY - minY },
       cyclic,
     }
-  }, [cards, connectors, rootIds, direction, showMetadata])
+  }, [cards, connectors, rootIds, direction, showMetadata, expandedMetaIds])
 
   // Auto-fit the layout to the container the first time we have both
   // sizes available. Subsequent direction changes also re-fit.
@@ -630,6 +718,8 @@ function DagreView({ cards, connectors, rootIds, direction, showMetadata, onFocu
             >
               <DagreNodeCard
                 card={n.card}
+                expanded={!!expandedMetaIds?.has(n.card.id)}
+                onToggleMeta={onToggleMeta}
                 showMetadata={showMetadata}
                 onFocusCard={onFocusCard}
                 statusOptions={statusOptions}
@@ -673,21 +763,10 @@ function pointsToPath(points) {
 
 // Reuse the same card layout as TreeNodeCard but keyed off a raw card
 // (Dagre walks the graph directly — no TreeNode placeholders).
-function DagreNodeCard({ card, showMetadata, onFocusCard, statusOptions, assigneeOptions, tagOptions }) {
+function DagreNodeCard({ card, expanded, onToggleMeta, showMetadata, onFocusCard, statusOptions, assigneeOptions, tagOptions }) {
   if (!card) return null
-  const statusDot   = card.status   ? getStatusColor(card.status, statusOptions)        : null
-  const assigneeDot = card.assignee ? getOptionColor(card.assignee, assigneeOptions)    : null
-  const tag         = card.tags?.[0]
-  const tagDot      = tag ? getOptionColor(tag, tagOptions)                              : null
-  const dateRange   = card.start_date || card.end_date
-    ? `${card.start_date || '?'} → ${card.end_date || '?'}`
-    : null
-  const previewText = card.description?.html
-    ? String(card.description.html).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 110)
-    : ''
-
   return (
-    <div className="hv-tnc" style={{ borderTopColor: card.color || 'var(--accent)' }}>
+    <div className={`hv-tnc${expanded ? ' meta-expanded' : ''}`} style={{ borderTopColor: card.color || 'var(--accent)' }}>
       <div className="hv-tnc-row">
         <span className="hv-color-dot" style={{ background: card.color || '#cbd5e1' }} />
         <button
@@ -698,41 +777,82 @@ function DagreNodeCard({ card, showMetadata, onFocusCard, statusOptions, assigne
         >
           {card.title || (card.node_shape === 'text' ? 'Text' : 'Untitled')}
         </button>
+        {showMetadata && (
+          <button
+            type="button"
+            className="hv-tnc-meta-btn"
+            title={expanded ? 'Show preview only' : 'Show full metadata'}
+            onClick={(e) => { e.stopPropagation(); onToggleMeta?.(card.id) }}
+          >
+            {expanded ? '▴' : '▾'}
+          </button>
+        )}
       </div>
 
       {showMetadata && (
-        <div className="hv-tnc-meta">
-          {card.status && (
-            <span className="hv-pill"><span className="hv-dot" style={{ background: statusDot }} />{card.status}</span>
-          )}
-          {card.assignee && (
-            <span className="hv-pill"><span className="hv-dot" style={{ background: assigneeDot }} />@{card.assignee}</span>
-          )}
-          {tag && (
-            <span className="hv-pill">
-              <span className="hv-dot" style={{ background: tagDot }} />
-              #{tag}{card.tags.length > 1 ? ` +${card.tags.length - 1}` : ''}
-            </span>
-          )}
-          {card.estimate != null && card.estimate !== '' && (
-            <span className="hv-pill">{card.estimate}p</span>
-          )}
-          {dateRange && (
-            <span className="hv-pill">{dateRange}</span>
-          )}
-          {card.node_shape && card.node_shape !== 'rect' && (
-            <span className="hv-pill subtle">{card.node_shape}</span>
-          )}
-          {previewText && (
-            <div className="hv-tnc-preview" title={previewText}>{previewText}</div>
-          )}
-        </div>
+        <CardMetaBody
+          card={card}
+          expanded={expanded}
+          statusOptions={statusOptions}
+          assigneeOptions={assigneeOptions}
+          tagOptions={tagOptions}
+        />
       )}
     </div>
   )
 }
 
-function TreeNodeCard({ datum, showMetadata, toggleNode, onFocusCard, statusOptions, assigneeOptions, tagOptions }) {
+// ─── Shared metadata body for Tree + Dagre cards ────────────────────
+// Same field selection as the indent <Metadata /> component, but laid
+// out for a card (vertical stack of rows) instead of an inline pill row.
+function CardMetaBody({ card, expanded, statusOptions, assigneeOptions, tagOptions }) {
+  const statusDot   = card.status   ? getStatusColor(card.status, statusOptions)        : null
+  const assigneeDot = card.assignee ? getOptionColor(card.assignee, assigneeOptions)    : null
+  const allTags     = card.tags || []
+  const dateRange   = card.start_date || card.end_date
+    ? `${card.start_date || '?'} → ${card.end_date || '?'}`
+    : null
+  const previewLen  = expanded ? 280 : 100
+  const previewText = card.description?.html
+    ? String(card.description.html).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, previewLen)
+    : ''
+  return (
+    <div className={`hv-tnc-meta${expanded ? ' expanded' : ''}`}>
+      {card.status && (
+        <span className="hv-pill"><span className="hv-dot" style={{ background: statusDot }} />{card.status}</span>
+      )}
+      {(expanded || allTags.length === 0) && card.assignee && (
+        <span className="hv-pill"><span className="hv-dot" style={{ background: assigneeDot }} />@{card.assignee}</span>
+      )}
+      {!expanded && allTags[0] && (
+        <span className="hv-pill">
+          <span className="hv-dot" style={{ background: getOptionColor(allTags[0], tagOptions) }} />
+          #{allTags[0]}{allTags.length > 1 ? ` +${allTags.length - 1}` : ''}
+        </span>
+      )}
+      {card.estimate != null && card.estimate !== '' && (
+        <span className="hv-pill">{card.estimate}p</span>
+      )}
+      {/* Extras (only when expanded) */}
+      {expanded && allTags.map((t) => (
+        <span key={t} className="hv-pill">
+          <span className="hv-dot" style={{ background: getOptionColor(t, tagOptions) }} />#{t}
+        </span>
+      ))}
+      {expanded && dateRange && (
+        <span className="hv-pill">{dateRange}</span>
+      )}
+      {expanded && card.node_shape && card.node_shape !== 'rect' && (
+        <span className="hv-pill subtle">{card.node_shape}</span>
+      )}
+      {previewText && (
+        <div className="hv-tnc-preview" title={previewText}>{previewText}</div>
+      )}
+    </div>
+  )
+}
+
+function TreeNodeCard({ datum, showMetadata, expandedMetaIds, onToggleMeta, toggleNode, onFocusCard, statusOptions, assigneeOptions, tagOptions }) {
   // Virtual-root marker emitted by toRd3Forest when there are >1 roots —
   // render as a slim label.
   if (datum.__virtual) {
@@ -767,19 +887,10 @@ function TreeNodeCard({ datum, showMetadata, toggleNode, onFocusCard, statusOpti
     )
   }
 
-  const statusDot   = card.status   ? getStatusColor(card.status, statusOptions)        : null
-  const assigneeDot = card.assignee ? getOptionColor(card.assignee, assigneeOptions)    : null
-  const tag         = card.tags?.[0]
-  const tagDot      = tag ? getOptionColor(tag, tagOptions)                              : null
-  const dateRange   = card.start_date || card.end_date
-    ? `${card.start_date || '?'} → ${card.end_date || '?'}`
-    : null
-  const previewText = card.description?.html
-    ? String(card.description.html).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 110)
-    : ''
+  const metaExpanded = !!expandedMetaIds?.has(card.id)
 
   return (
-    <div className="hv-tnc" style={{ borderTopColor: card.color || 'var(--accent)' }}>
+    <div className={`hv-tnc${metaExpanded ? ' meta-expanded' : ''}`} style={{ borderTopColor: card.color || 'var(--accent)' }}>
       <div className="hv-tnc-row">
         <span className="hv-color-dot" style={{ background: card.color || '#cbd5e1' }} />
         <button
@@ -790,11 +901,21 @@ function TreeNodeCard({ datum, showMetadata, toggleNode, onFocusCard, statusOpti
         >
           {card.title || (card.node_shape === 'text' ? 'Text' : 'Untitled')}
         </button>
+        {showMetadata && (
+          <button
+            type="button"
+            className="hv-tnc-meta-btn"
+            title={metaExpanded ? 'Show preview only' : 'Show full metadata'}
+            onClick={(e) => { e.stopPropagation(); onToggleMeta?.(card.id) }}
+          >
+            {metaExpanded ? '▴' : '▾'}
+          </button>
+        )}
         {hasChildren && (
           <button
             type="button"
             className="hv-tnc-toggle"
-            title="Collapse / expand"
+            title="Collapse / expand subtree"
             onClick={(e) => { e.stopPropagation(); toggleNode() }}
           >
             {datum._children ? '+' : '−'}
@@ -803,32 +924,13 @@ function TreeNodeCard({ datum, showMetadata, toggleNode, onFocusCard, statusOpti
       </div>
 
       {showMetadata && (
-        <div className="hv-tnc-meta">
-          {card.status && (
-            <span className="hv-pill"><span className="hv-dot" style={{ background: statusDot }} />{card.status}</span>
-          )}
-          {card.assignee && (
-            <span className="hv-pill"><span className="hv-dot" style={{ background: assigneeDot }} />@{card.assignee}</span>
-          )}
-          {tag && (
-            <span className="hv-pill">
-              <span className="hv-dot" style={{ background: tagDot }} />
-              #{tag}{card.tags.length > 1 ? ` +${card.tags.length - 1}` : ''}
-            </span>
-          )}
-          {card.estimate != null && card.estimate !== '' && (
-            <span className="hv-pill">{card.estimate}p</span>
-          )}
-          {dateRange && (
-            <span className="hv-pill">{dateRange}</span>
-          )}
-          {card.node_shape && card.node_shape !== 'rect' && (
-            <span className="hv-pill subtle">{card.node_shape}</span>
-          )}
-          {previewText && (
-            <div className="hv-tnc-preview" title={previewText}>{previewText}</div>
-          )}
-        </div>
+        <CardMetaBody
+          card={card}
+          expanded={metaExpanded}
+          statusOptions={statusOptions}
+          assigneeOptions={assigneeOptions}
+          tagOptions={tagOptions}
+        />
       )}
     </div>
   )
