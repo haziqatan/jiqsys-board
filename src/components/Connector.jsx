@@ -502,7 +502,7 @@ export default function Connector({
   const showBugsAppearance = bugsAffected && !ghost
   const stroke      = showBugsAppearance ? BUGS_STATUS_COLOR : ghost ? '#9ca3af' : selected ? '#3b82f6' : '#1f2330'
   const strokeWidth = ghost ? 1.6 : thickness
-  const dash        = showBugsAppearance ? `${thickness * 4} ${thickness * 2.5}` : dashArray(style, thickness)
+  const dash        = showBugsAppearance ? `${strokeWidth} ${strokeWidth * 2.6}` : dashArray(style, thickness)
 
   return (
     <g

@@ -78,10 +78,6 @@
   pointer-events: stroke;
 }
 
-.connectors-layer .connector-line.status-bugs {
-  animation: connector-bugs-stripe 0.75s linear infinite;
-}
-
 .connectors-layer .connector-label-fo {
   overflow: visible;
   pointer-events: all;
@@ -140,11 +136,6 @@
 
 .connector-label-input::placeholder {
   color: var(--text-soft);
-}
-
-@keyframes connector-bugs-stripe {
-  from { stroke-dashoffset: 0; }
-  to { stroke-dashoffset: -18; }
 }
 
 /* Zoom indicator -------------------------------------------------- */
