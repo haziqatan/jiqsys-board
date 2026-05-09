@@ -1,0 +1,123 @@
+.board-settings {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 140;
+}
+
+.bs-trigger {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-md);
+  transition: background 140ms var(--ease), color 140ms var(--ease), transform 120ms var(--ease);
+}
+
+.bs-trigger:hover,
+.bs-trigger.active {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.bs-trigger:active {
+  transform: scale(0.96);
+}
+
+.bs-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 244px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  animation: bs-panel-in 160ms var(--ease);
+}
+
+@keyframes bs-panel-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.bs-section {
+  padding: 4px;
+}
+
+.bs-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-soft);
+  margin: 0 0 8px;
+}
+
+.bs-segmented {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 3px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.bs-segment {
+  height: 34px;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.bs-segment:hover {
+  color: var(--text);
+}
+
+.bs-segment.active {
+  background: var(--surface);
+  color: var(--accent-strong);
+  box-shadow: 0 1px 3px rgba(15, 20, 35, 0.10);
+}
+
+.bs-segment svg,
+.bs-action svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.bs-action {
+  width: 100%;
+  min-height: 38px;
+  margin-top: 8px;
+  padding: 0 10px;
+  border-radius: var(--radius);
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 9px;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.bs-action:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.bs-action.danger:hover {
+  background: #fff1f2;
+  color: #dc2626;
+}

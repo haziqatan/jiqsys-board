@@ -415,6 +415,7 @@ export default function Canvas({
   onDeleteConnector,
   objectClipboard,
   onObjectClipboardChange,
+  boardAppearance = 'dotted',
   tool,
   setTool,
   focusRequest,
@@ -1090,7 +1091,7 @@ export default function Canvas({
       onMouseLeave={onMouseUp}
     >
       <div
-        className="canvas-grid"
+        className={`canvas-grid ${boardAppearance === 'clear' ? 'clear' : 'dotted'}`}
         style={{
           backgroundPosition: `${view.x}px ${view.y}px`,
           backgroundSize: `${24 * view.zoom}px ${24 * view.zoom}px`,

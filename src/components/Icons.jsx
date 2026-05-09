@@ -136,6 +136,36 @@ export const IconDots = (p) => (
   </svg>
 )
 
+export const IconSettings = (p) => (
+  <svg {...base} {...p}>
+    <circle cx="12" cy="12" r="3" {...duo} />
+    <circle cx="12" cy="12" r="3" />
+    <path d="M19.4 15a1.8 1.8 0 0 0 .35 2l.05.05-2.1 2.1-.05-.05a1.8 1.8 0 0 0-2-.35 1.8 1.8 0 0 0-1.1 1.65V20.5h-3v-.1A1.8 1.8 0 0 0 10.4 18.8a1.8 1.8 0 0 0-2 .35l-.05.05-2.1-2.1.05-.05a1.8 1.8 0 0 0 .35-2A1.8 1.8 0 0 0 5 13.95H4.9v-3H5A1.8 1.8 0 0 0 6.6 9.85a1.8 1.8 0 0 0-.35-2L6.2 7.8l2.1-2.1.05.05a1.8 1.8 0 0 0 2 .35A1.8 1.8 0 0 0 11.45 4.5v-.1h3v.1a1.8 1.8 0 0 0 1.1 1.6 1.8 1.8 0 0 0 2-.35l.05-.05 2.1 2.1-.05.05a1.8 1.8 0 0 0-.35 2 1.8 1.8 0 0 0 1.65 1.1h.1v3h-.1A1.8 1.8 0 0 0 19.4 15z" />
+  </svg>
+)
+
+export const IconLock = (p) => (
+  <svg {...base} {...p}>
+    <rect x="5" y="11" width="14" height="9" rx="2.2" {...duo} />
+    <rect x="5" y="11" width="14" height="9" rx="2.2" />
+    <path d="M8.5 11V8a3.5 3.5 0 0 1 7 0v3" />
+  </svg>
+)
+
+export const IconGridDots = (p) => (
+  <svg {...base} {...p}>
+    <circle cx="6" cy="6" r="1.2" fill="currentColor" stroke="none" />
+    <circle cx="12" cy="6" r="1.2" fill="currentColor" stroke="none" />
+    <circle cx="18" cy="6" r="1.2" fill="currentColor" stroke="none" />
+    <circle cx="6" cy="12" r="1.2" fill="currentColor" stroke="none" />
+    <circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none" />
+    <circle cx="18" cy="12" r="1.2" fill="currentColor" stroke="none" />
+    <circle cx="6" cy="18" r="1.2" fill="currentColor" stroke="none" />
+    <circle cx="12" cy="18" r="1.2" fill="currentColor" stroke="none" />
+    <circle cx="18" cy="18" r="1.2" fill="currentColor" stroke="none" />
+  </svg>
+)
+
 export const IconBold = (p) => (
   <svg {...base} {...p}>
     <path d="M7 5h6a3.5 3.5 0 0 1 0 7H7z" />

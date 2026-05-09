@@ -3,6 +3,7 @@ import Canvas from './components/Canvas'
 import Toolbar from './components/Toolbar'
 import CardDetail from './components/CardDetail'
 import BoardMenu from './components/BoardMenu'
+import BoardSettings from './components/BoardSettings'
 import SearchBar from './components/SearchBar'
 import HierarchyView from './components/HierarchyView'
 import {
@@ -36,6 +37,7 @@ const ACTIVE_BOARD_KEY = 'jiqsys-active-board'
 const STATUS_OPTIONS_KEY = 'jiqsys-status-options'
 const ASSIGNEE_OPTIONS_KEY = 'jiqsys-assignee-options'
 const TAG_OPTIONS_KEY = 'jiqsys-tag-options'
+const BOARD_APPEARANCE_KEY = 'jiqsys-board-appearance'
 
 function loadStatusOptions() {
   const bugsDefaultOption = DEFAULT_STATUS_OPTIONS.find((option) => option.value === BUGS_STATUS_VALUE)
@@ -88,6 +90,10 @@ export default function App() {
   const [tagOptions, setTagOptions] = useState(() => loadOptions(TAG_OPTIONS_KEY))
   const [searchOpen, setSearchOpen] = useState(false)
   const [hierarchyOpen, setHierarchyOpen] = useState(false)
+  const [boardAppearance, setBoardAppearance] = useState(() => {
+    const saved = localStorage.getItem(BOARD_APPEARANCE_KEY)
+    return saved === 'clear' ? 'clear' : 'dotted'
+  })
   const [objectClipboard, setObjectClipboard] = useState(null)
   // Bumped each time the user navigates to a new search hit. Canvas listens
   // to this and animates the view to centre the focused card; we use an
@@ -106,6 +112,9 @@ export default function App() {
   }, [statusOptions])
   useEffect(() => saveOptions(ASSIGNEE_OPTIONS_KEY, assigneeOptions), [assigneeOptions])
   useEffect(() => saveOptions(TAG_OPTIONS_KEY, tagOptions), [tagOptions])
+  useEffect(() => {
+    localStorage.setItem(BOARD_APPEARANCE_KEY, boardAppearance)
+  }, [boardAppearance])
 
   useEffect(() => {
     setAssigneeOptions((prev) => mergeMissingOptions(prev, cards.map((card) => card.assignee)))
@@ -827,6 +836,7 @@ export default function App() {
         onDeleteConnector={trackedDeleteConnector}
         objectClipboard={objectClipboard}
         onObjectClipboardChange={setObjectClipboard}
+        boardAppearance={boardAppearance}
         tool={tool}
         setTool={setTool}
         focusRequest={focusRequest}
@@ -836,6 +846,12 @@ export default function App() {
         tool={tool}
         setTool={setTool}
         onOpenHierarchy={() => setHierarchyOpen(true)}
+      />
+
+      <BoardSettings
+        boardAppearance={boardAppearance}
+        onBoardAppearanceChange={setBoardAppearance}
+        onLock={() => window.dispatchEvent(new CustomEvent('jiqsys-lock-board'))}
       />
 
       <HierarchyView

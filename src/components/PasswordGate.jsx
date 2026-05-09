@@ -72,6 +72,17 @@ export default function PasswordGate({ children }) {
     return () => clearInterval(id)
   }, [unlocked])
 
+  useEffect(() => {
+    if (!unlocked) return undefined
+    const onLockBoard = () => {
+      lock()
+      setUnlocked(false)
+      setStage('login')
+    }
+    window.addEventListener('jiqsys-lock-board', onLockBoard)
+    return () => window.removeEventListener('jiqsys-lock-board', onLockBoard)
+  }, [unlocked])
+
   // Keep this tab in sync if another tab locks/unlocks via storage events.
   useEffect(() => {
     const onStorage = (e) => {
@@ -185,22 +196,7 @@ export default function PasswordGate({ children }) {
   }
 
   if (unlocked) {
-    return (
-      <>
-        {children}
-        <button
-          className="pg-lock-btn"
-          title="Lock board now"
-          onClick={() => {
-            lock()
-            setUnlocked(false)
-            setStage('login')
-          }}
-        >
-          <LockIcon />
-        </button>
-      </>
-    )
+    return children
   }
 
   const card = (() => {
