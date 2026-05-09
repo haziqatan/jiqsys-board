@@ -388,7 +388,7 @@ export default function CardNode({
   const assigneeDot = card.assignee ? getOptionColor(card.assignee, assigneeOptions) : null
   const tagDot = card.tags?.[0] ? getOptionColor(card.tags[0], tagOptions) : null
   const cardColor = showBugsAppearance ? BUGS_STATUS_COLOR : card.color
-  const colorBarStyle = showBugsAppearance ? 'animated' : (card.color_bar_style || 'solid')
+  const colorBarStyle = card.color_bar_style || 'solid'
 
   return (
     <div

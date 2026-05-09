@@ -39,6 +39,10 @@ const ASSIGNEE_OPTIONS_KEY = 'jiqsys-assignee-options'
 const TAG_OPTIONS_KEY = 'jiqsys-tag-options'
 const BOARD_APPEARANCE_KEY = 'jiqsys-board-appearance'
 
+function hasPatchChanges(target, patch) {
+  return Object.keys(patch).some((key) => !Object.is(target?.[key], patch[key]))
+}
+
 function loadStatusOptions() {
   const bugsDefaultOption = DEFAULT_STATUS_OPTIONS.find((option) => option.value === BUGS_STATUS_VALUE)
   const ensureBugsStatusOption = (options) => {
@@ -660,6 +664,7 @@ export default function App() {
 
   const trackedUpdateCard = useCallback((id, patch) => {
     const card = cardsRef.current.find((c) => c.id === id)
+    if (card && !hasPatchChanges(card, patch)) return
     if (card) {
       const before = {}
       for (const k of Object.keys(patch)) before[k] = card[k]
