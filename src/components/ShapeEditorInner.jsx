@@ -10,6 +10,7 @@ import { TextStyle, FontSize } from '@tiptap/extension-text-style'
 import Color from '@tiptap/extension-color'
 import TextAlign from '@tiptap/extension-text-align'
 import { useEffect, useRef, useState } from 'react'
+import { handleClipboardImagePaste, readImageAsDataUrl } from '../lib/tiptapImages'
 import {
   IconBold, IconItalic, IconStrike,
   IconList, IconListNumbered, IconCheck,
@@ -38,6 +39,7 @@ export default function ShapeEditorInner({
   const textColorInputRef = useRef(null)
   const barRef           = useRef(null)
   const editorWrapRef    = useRef(null)
+  const editorRef        = useRef(null)
   const [barPos, setBarPos] = useState({ x: 0, y: 0 })
 
   const editor = useEditor({
@@ -46,7 +48,7 @@ export default function ShapeEditorInner({
         bulletList: { keepMarks: true },
         orderedList: { keepMarks: true },
       }),
-      ImageExt,
+      ImageExt.configure({ allowBase64: true }),
       Link.configure({ openOnClick: false }),
       Underline,
       TaskList,
@@ -58,7 +60,20 @@ export default function ShapeEditorInner({
     ],
     content: initialContent || '<p></p>',
     onUpdate: ({ editor: ed }) => onUpdate(ed.getHTML()),
+    editorProps: {
+      handlePaste: (_view, event) =>
+        handleClipboardImagePaste(event, (src) => {
+          editorRef.current?.chain().focus().setImage({ src }).run()
+        }),
+    },
   })
+
+  useEffect(() => {
+    editorRef.current = editor
+    return () => {
+      if (editorRef.current === editor) editorRef.current = null
+    }
+  }, [editor])
 
   // Auto-focus on mount
   useEffect(() => {
@@ -112,9 +127,9 @@ export default function ShapeEditorInner({
   const handleImageFile = (e) => {
     const file = e.target.files?.[0]
     if (file) {
-      const r = new FileReader()
-      r.onload = (ev) => addImage(ev.target.result)
-      r.readAsDataURL(file)
+      readImageAsDataUrl(file)
+        .then(addImage)
+        .catch((error) => console.error(error))
       e.target.value = ''
     }
   }

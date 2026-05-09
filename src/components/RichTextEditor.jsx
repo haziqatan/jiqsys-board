@@ -1,10 +1,12 @@
 import { useEditor, EditorContent } from '@tiptap/react'
+import { useEffect, useRef } from 'react'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
 import Link from '@tiptap/extension-link'
 import Underline from '@tiptap/extension-underline'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
+import { handleClipboardImagePaste, readImageAsDataUrl } from '../lib/tiptapImages'
 import {
   IconBold,
   IconItalic,
@@ -19,13 +21,15 @@ import {
 import '../styles/RichTextEditor.css'
 
 export default function RichTextEditor({ value, onChange }) {
+  const editorRef = useRef(null)
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
         bulletList: { keepMarks: true },
         orderedList: { keepMarks: true },
       }),
-      Image,
+      Image.configure({ allowBase64: true }),
       Link.configure({ openOnClick: false }),
       Underline,
       TaskList,
@@ -33,25 +37,25 @@ export default function RichTextEditor({ value, onChange }) {
     ],
     content: value || '<p></p>',
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
+    editorProps: {
+      handlePaste: (_view, event) =>
+        handleClipboardImagePaste(event, (src) => {
+          editorRef.current?.chain().focus().setImage({ src }).run()
+        }),
+    },
   })
+
+  useEffect(() => {
+    editorRef.current = editor
+    return () => {
+      if (editorRef.current === editor) editorRef.current = null
+    }
+  }, [editor])
 
   if (!editor) return <div className="re-loading">Loading editor…</div>
 
   const addImage = (url) => {
     if (url) editor.chain().focus().setImage({ src: url }).run()
-  }
-
-  const handleImagePaste = (e) => {
-    const items = e.clipboardData?.items
-    if (!items) return
-    for (const item of items) {
-      if (item.type.indexOf('image') === 0) {
-        const blob = item.getAsFile()
-        const reader = new FileReader()
-        reader.onload = (ev) => addImage(ev.target.result)
-        reader.readAsDataURL(blob)
-      }
-    }
   }
 
   const promptLink = () => {
@@ -139,9 +143,9 @@ export default function RichTextEditor({ value, onChange }) {
             onChange={(e) => {
               const file = e.target.files?.[0]
               if (file) {
-                const r = new FileReader()
-                r.onload = (ev) => addImage(ev.target.result)
-                r.readAsDataURL(file)
+                readImageAsDataUrl(file)
+                  .then(addImage)
+                  .catch((error) => console.error(error))
                 e.target.value = ''
               }
             }}
@@ -152,7 +156,6 @@ export default function RichTextEditor({ value, onChange }) {
       <EditorContent
         editor={editor}
         className="editor-content"
-        onPaste={handleImagePaste}
       />
     </div>
   )
