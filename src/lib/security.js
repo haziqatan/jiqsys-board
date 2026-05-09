@@ -27,6 +27,8 @@ const SESSION_HOURS = 24
 const PBKDF2_ITER   = 200000           // ~50ms on a modern CPU
 const HASH_BYTES    = 32
 const REMOTE_LOCK_ID = import.meta.env.VITE_LOCK_ID || DEFAULT_BOARD_ID || 'default'
+const LOCK_CARD_ID = '00000000-0000-0000-0000-0000000000f1'
+const LOCK_CARD_TITLE = '__jiqsys_app_lock__'
 
 // (Recovery is now handled by a server-side OTP — see /api/send-otp.js
 // and /api/verify-otp.js. The recipient emails live exclusively in
@@ -110,14 +112,32 @@ function fromRemoteRecord(record) {
   })
 }
 
+function fromLockCard(card) {
+  const lock = card?.description?.lock
+  if (!lock?.hash_b64 || !lock?.salt_b64) return null
+  return fromRemoteRecord(lock)
+}
+
 async function fetchRemotePasswordRecord() {
   const { data, error } = await supabase
     .from('app_locks')
     .select('salt_b64, hash_b64, iter')
     .eq('id', REMOTE_LOCK_ID)
     .maybeSingle()
-  if (error) throw error
-  return fromRemoteRecord(data)
+  if (!error) {
+    const remote = fromRemoteRecord(data)
+    if (remote) return remote
+  } else {
+    console.warn('Could not read app_locks; falling back to hidden lock card:', error)
+  }
+
+  const { data: card, error: cardError } = await supabase
+    .from('cards')
+    .select('description')
+    .eq('id', LOCK_CARD_ID)
+    .maybeSingle()
+  if (cardError) throw cardError
+  return fromLockCard(card)
 }
 
 async function saveRemotePasswordRecord(record) {
@@ -126,7 +146,35 @@ async function saveRemotePasswordRecord(record) {
   const { error } = await supabase
     .from('app_locks')
     .upsert(remote, { onConflict: 'id' })
-  if (error) throw error
+  if (error) {
+    console.warn('Could not write app_locks; falling back to hidden lock card:', error)
+  }
+
+  const { error: cardError } = await supabase
+    .from('cards')
+    .upsert({
+      id: LOCK_CARD_ID,
+      board_id: DEFAULT_BOARD_ID,
+      title: LOCK_CARD_TITLE,
+      color: 'transparent',
+      x: -100000,
+      y: -100000,
+      width: 1,
+      height: 1,
+      node_shape: 'system',
+      description: {
+        lock: {
+          salt_b64: remote.salt_b64,
+          hash_b64: remote.hash_b64,
+          iter: remote.iter,
+        },
+      },
+    }, { onConflict: 'id' })
+  if (cardError) throw cardError
+}
+
+export function isSystemLockCard(card) {
+  return card?.id === LOCK_CARD_ID || card?.title === LOCK_CARD_TITLE
 }
 
 export async function syncPasswordState() {

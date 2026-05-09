@@ -27,6 +27,7 @@ import {
   createStatusOption,
   normalizeStatus,
 } from './lib/status'
+import { isSystemLockCard } from './lib/security'
 import { createOption, loadOptions, normalizeOption, saveOptions } from './lib/options'
 import './App.css'
 
@@ -230,6 +231,7 @@ export default function App() {
         { event: '*', schema: 'public', table: 'cards', filter: `board_id=eq.${boardId}` },
         (payload) => {
           setCards((prev) => {
+            if (isSystemLockCard(payload.new || payload.old)) return prev
             if (payload.eventType === 'INSERT') {
               if (prev.find((c) => c.id === payload.new.id)) return prev
               return [...prev, payload.new]

@@ -1,4 +1,5 @@
 import { supabase, DEFAULT_BOARD_ID } from './supabase'
+import { isSystemLockCard } from './security'
 
 export async function ensureBoard(id = DEFAULT_BOARD_ID) {
   const { data } = await supabase.from('boards').select('*').eq('id', id).maybeSingle()
@@ -54,7 +55,7 @@ export async function fetchCards(boardId) {
     .eq('board_id', boardId)
     .order('created_at', { ascending: true })
   if (error) throw error
-  return data || []
+  return (data || []).filter((card) => !isSystemLockCard(card))
 }
 
 export async function fetchConnectors(boardId) {
