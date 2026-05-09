@@ -87,6 +87,7 @@ export default function App() {
   const [tagOptions, setTagOptions] = useState(() => loadOptions(TAG_OPTIONS_KEY))
   const [searchOpen, setSearchOpen] = useState(false)
   const [hierarchyOpen, setHierarchyOpen] = useState(false)
+  const [objectClipboard, setObjectClipboard] = useState(null)
   // Bumped each time the user navigates to a new search hit. Canvas listens
   // to this and animates the view to centre the focused card; we use an
   // incrementing token so re-clicking the same result still re-pans.
@@ -806,6 +807,7 @@ export default function App() {
 
       <Canvas
         key={boardId}
+        boardId={boardId}
         cards={cards}
         connectors={connectors}
         statusOptions={statusOptions}
@@ -821,6 +823,8 @@ export default function App() {
         onCreateConnector={trackedCreateConnector}
         onUpdateConnector={trackedUpdateConnector}
         onDeleteConnector={trackedDeleteConnector}
+        objectClipboard={objectClipboard}
+        onObjectClipboardChange={setObjectClipboard}
         tool={tool}
         setTool={setTool}
         focusRequest={focusRequest}

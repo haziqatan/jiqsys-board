@@ -94,6 +94,46 @@ const cloneCardForPaste = (card) => {
     : JSON.parse(JSON.stringify(copyable))
 }
 
+const cloneClipboardData = (value) =>
+  typeof structuredClone === 'function'
+    ? structuredClone(value)
+    : JSON.parse(JSON.stringify(value))
+
+const cloneConnectorForPaste = (connector) => {
+  const {
+    id,
+    board_id,
+    created_at,
+    updated_at,
+    source_card_id,
+    target_card_id,
+    ...copyable
+  } = connector
+  return cloneClipboardData(copyable)
+}
+
+function createBoardClipboardPayload(boardId, selectedCards, boardConnectors) {
+  const selectedIdSet = new Set(selectedCards.map((card) => card.id))
+  const selectedConnectors = boardConnectors.filter(
+    (conn) => selectedIdSet.has(conn.source_card_id) && selectedIdSet.has(conn.target_card_id),
+  )
+
+  return {
+    version: 1,
+    sourceBoardId: boardId,
+    cards: selectedCards.map((card) => ({
+      sourceId: card.id,
+      data: cloneCardForPaste(card),
+    })),
+    connectors: selectedConnectors.map((conn) => ({
+      sourceId: conn.id,
+      sourceCardId: conn.source_card_id,
+      targetCardId: conn.target_card_id,
+      data: cloneConnectorForPaste(conn),
+    })),
+  }
+}
+
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -356,6 +396,7 @@ function getSpacingMeasurements(moving, others) {
 }
 
 export default function Canvas({
+  boardId,
   cards,
   connectors,
   statusOptions,
@@ -372,6 +413,8 @@ export default function Canvas({
   onCreateConnector,
   onUpdateConnector,
   onDeleteConnector,
+  objectClipboard,
+  onObjectClipboardChange,
   tool,
   setTool,
   focusRequest,
@@ -384,8 +427,6 @@ export default function Canvas({
   const [panning, setPanning] = useState(null)
   const [dragging, setDragging] = useState(null)
   const [snapVisual, setSnapVisual] = useState(null)
-  // Multi-select copy buffer — array of card snapshots cloned for pasting.
-  const [copiedCards, setCopiedCards] = useState([])
   const [linking, setLinking] = useState(null) // { sourceId, sourceSide, x, y }
   const [hoveredCardId, setHoveredCardId] = useState(null)
   const [selectedConnectorId, setSelectedConnectorId] = useState(null)
@@ -746,21 +787,28 @@ export default function Canvas({
   useEffect(() => {
     const isTyping = (el) =>
       el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)
-    const pasteCopiedCards = async () => {
+    const pasteCopiedObjects = async () => {
+      const copiedCards = objectClipboard?.cards || []
       if (!copiedCards.length) return
-      // Anchor the paste at the user's cursor world point (or viewport
-      // centre as fallback). The first card is positioned PASTE_OFFSET
-      // away from its original spot; every subsequent card preserves its
-      // relative offset to the first so the cluster keeps its shape.
-      const anchorX = copiedCards[0].x ?? getPasteWorldPoint().x
-      const anchorY = copiedCards[0].y ?? getPasteWorldPoint().y
+      // Same-board paste behaves like Miro: each paste steps the group down
+      // and right. Cross-board paste lands at the cursor/viewport center while
+      // preserving the copied group's relative layout.
+      const firstCard = copiedCards[0].data
+      const sourceAnchorX = firstCard.x ?? getPasteWorldPoint().x
+      const sourceAnchorY = firstCard.y ?? getPasteWorldPoint().y
+      const pastePoint = getPasteWorldPoint()
+      const sameBoard = objectClipboard?.sourceBoardId === boardId
+      const pasteOriginX = sameBoard ? sourceAnchorX + PASTE_OFFSET : pastePoint.x
+      const pasteOriginY = sameBoard ? sourceAnchorY + PASTE_OFFSET : pastePoint.y
+      const deltaX = pasteOriginX - sourceAnchorX
+      const deltaY = pasteOriginY - sourceAnchorY
       const newCards = []
       const newIds = []
-      for (const c of copiedCards) {
-        const dx = (c.x ?? anchorX) - anchorX
-        const dy = (c.y ?? anchorY) - anchorY
-        const nx = anchorX + dx + PASTE_OFFSET
-        const ny = anchorY + dy + PASTE_OFFSET
+      const idMap = new Map()
+      for (const item of copiedCards) {
+        const c = item.data
+        const nx = (c.x ?? sourceAnchorX) + deltaX
+        const ny = (c.y ?? sourceAnchorY) + deltaY
         const created = await onCreateCard(nx, ny, {
           ...cloneCardForPaste(c),
           x: nx,
@@ -770,12 +818,31 @@ export default function Canvas({
         if (created) {
           newCards.push(created)
           newIds.push(created.id)
+          idMap.set(item.sourceId, created.id)
         }
       }
-      // Re-arm the buffer with the freshly-pasted cards so a second Cmd+V
-      // produces a third batch offset further down/right (Miro-style).
+
+      const newConnectors = []
+      for (const item of objectClipboard?.connectors || []) {
+        const sourceId = idMap.get(item.sourceCardId)
+        const targetId = idMap.get(item.targetCardId)
+        if (!sourceId || !targetId) continue
+        const opts = cloneClipboardData(item.data)
+        if (Array.isArray(opts.waypoints)) {
+          opts.waypoints = opts.waypoints.map((point) => ({
+            ...point,
+            x: (point.x ?? 0) + deltaX,
+            y: (point.y ?? 0) + deltaY,
+          }))
+        }
+        const created = await onCreateConnector(sourceId, targetId, opts)
+        if (created) newConnectors.push(created)
+      }
+
+      // Re-arm the buffer with the freshly-pasted objects so a second Cmd+V
+      // produces another batch offset further down/right on this board.
       if (newCards.length) {
-        setCopiedCards(newCards.map(cloneCardForPaste))
+        onObjectClipboardChange(createBoardClipboardPayload(boardId, newCards, newConnectors))
         // Select the freshly-pasted set so user can immediately drag/edit.
         onSelect(newIds)
       }
@@ -808,17 +875,17 @@ export default function Canvas({
         const sel = (selectedIds || []).map((id) => cardsById[id]).filter(Boolean)
         if (sel.length) {
           e.preventDefault()
-          setCopiedCards(sel.map(cloneCardForPaste))
+          onObjectClipboardChange(createBoardClipboardPayload(boardId, sel, connectors))
         }
         return
       }
       if (commandKey && (e.key === 'v' || e.key === 'V')) {
         if (isTyping(e.target)) return
-        if (copiedCards.length) {
+        if (objectClipboard?.cards?.length) {
           if (pendingObjectPasteRef.current) clearTimeout(pendingObjectPasteRef.current)
           pendingObjectPasteRef.current = setTimeout(() => {
             pendingObjectPasteRef.current = null
-            pasteCopiedCards().catch((error) => console.error(error))
+            pasteCopiedObjects().catch((error) => console.error(error))
           }, 0)
         }
         return
@@ -869,13 +936,17 @@ export default function Canvas({
       if (pendingObjectPasteRef.current) clearTimeout(pendingObjectPasteRef.current)
     }
   }, [
+    boardId,
     selectedIds,
     selectedConnectorId,
     cardsById,
-    copiedCards,
+    connectors,
+    objectClipboard,
     onCreateCard,
+    onCreateConnector,
     onDeleteCard,
     onDeleteConnector,
+    onObjectClipboardChange,
     onSelect,
     setTool,
     tool,
