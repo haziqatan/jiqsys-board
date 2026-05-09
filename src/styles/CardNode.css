@@ -24,6 +24,19 @@
   box-shadow: 0 0 0 2px var(--accent-soft), var(--shadow-md);
   will-change: left, top;
 }
+.card-node.status-bugs {
+  border-color: #ef4444;
+  background: #fff7f7;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.12), var(--shadow-sm);
+}
+.card-node.status-bugs:hover {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.16), var(--shadow-md);
+}
+.card-node.status-bugs.selected {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.22), var(--shadow-md);
+}
 
 /* ── Inner wrapper — clips rounded corners for rect cards ── */
 .card-inner {
@@ -66,6 +79,7 @@
 .card-color-bar.style-animated {
   animation: stripe-slide 1s linear infinite;
 }
+.card-node.status-bugs .card-color-bar { height: 9px; }
 
 @keyframes stripe-slide {
   from { background-position: 0 0; }
@@ -160,8 +174,22 @@
   inset: 0;
   transition: filter 160ms var(--ease);
 }
+.card-node.status-bugs.shape-node .shape-bg {
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent 0,
+    transparent 8px,
+    rgba(255, 255, 255, 0.55) 8px,
+    rgba(255, 255, 255, 0.55) 16px
+  );
+  animation: stripe-slide 1s linear infinite;
+  box-shadow: inset 0 0 0 2px #dc2626;
+}
 .card-node.shape-node:hover .shape-bg {
   filter: brightness(0.95);
+}
+.card-node.status-bugs.shape-node.selected {
+  filter: drop-shadow(0 0 0 2.5px #dc2626) drop-shadow(0 0 6px rgba(239,68,68,.35));
 }
 
 /* Centered text label */

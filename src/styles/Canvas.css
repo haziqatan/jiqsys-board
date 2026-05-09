@@ -74,6 +74,15 @@
   pointer-events: stroke;
 }
 
+.connectors-layer .connector-line.status-bugs {
+  animation: connector-bugs-stripe 0.75s linear infinite;
+}
+
+@keyframes connector-bugs-stripe {
+  from { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: -18; }
+}
+
 /* Zoom indicator -------------------------------------------------- */
 .zoom-indicator {
   position: fixed;

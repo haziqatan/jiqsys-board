@@ -1,9 +1,13 @@
 import { createOption, getOptionColor, normalizeOption } from './options'
 
+export const BUGS_STATUS_VALUE = 'Bugs'
+export const BUGS_STATUS_COLOR = '#ef4444'
+
 export const DEFAULT_STATUS_OPTIONS = [
   { value: null, label: 'Not set', color: '#cbd0db' },
   { value: 'To Do', label: 'To Do', color: '#94a3b8', id: 'to-do' },
   { value: 'In Progress', label: 'In Progress', color: '#3b82f6', id: 'in-progress' },
+  { value: BUGS_STATUS_VALUE, label: BUGS_STATUS_VALUE, color: BUGS_STATUS_COLOR, id: 'bugs' },
   { value: 'Blocked', label: 'Blocked', color: '#ef4444', id: 'blocked' },
   { value: 'Done', label: 'Done', color: '#22c55e', id: 'done' },
 ]
@@ -19,6 +23,10 @@ export function createStatusOption(label, color = '#0ea5e9') {
 
 export function normalizeStatus(value) {
   return normalizeOption(value)
+}
+
+export function isBugsStatus(status) {
+  return normalizeStatus(status)?.toLowerCase() === BUGS_STATUS_VALUE.toLowerCase()
 }
 
 export function getStatusColor(status, options = DEFAULT_STATUS_OPTIONS) {

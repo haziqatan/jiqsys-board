@@ -3,6 +3,7 @@ import CardNode from './CardNode'
 import Connector, { pickAnchor, rectCenter, getPathSegmentsWithWaypoints } from './Connector'
 import ConnectorToolbar from './ConnectorToolbar'
 import { IconPlus, IconMinus, IconHome } from './Icons'
+import { isBugsStatus } from '../lib/status'
 import '../styles/Canvas.css'
 
 const MIN_ZOOM = 0.2
@@ -940,6 +941,10 @@ export default function Canvas({
   const selectedConnector = selectedConnectorId
     ? connectors.find((c) => c.id === selectedConnectorId)
     : null
+  const bugsCardIds = useMemo(
+    () => new Set(cards.filter((card) => isBugsStatus(card.status)).map((card) => card.id)),
+    [cards],
+  )
   let toolbarPos = null
   if (selectedConnector) {
     const src = cardsById[selectedConnector.source_card_id]
@@ -1012,6 +1017,9 @@ export default function Canvas({
                 target={tgt}
                 offset={{ x: WORLD_OFFSET, y: WORLD_OFFSET }}
                 selected={selectedConnectorId === conn.id}
+                bugsAffected={
+                  bugsCardIds.has(conn.source_card_id) || bugsCardIds.has(conn.target_card_id)
+                }
                 crossingSegments={crossings}
                 onSelect={() => {
                   setSelectedConnectorId(conn.id)

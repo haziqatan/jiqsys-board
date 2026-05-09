@@ -1,4 +1,5 @@
 import { useEffect, useId, useState } from 'react'
+import { BUGS_STATUS_COLOR } from '../lib/status'
 
 // ── Pure geometry helpers ────────────────────────────────────────────────────
 
@@ -321,6 +322,7 @@ export default function Connector({
   onSelect,
   onUpdateWaypoints,
   crossingSegments = [],
+  bugsAffected = false,
 }) {
   const uid = useId()
   const arrowId = `arrow-${uid}`
@@ -437,9 +439,10 @@ export default function Connector({
 
   const boneCursor = (c) => c === 'x' ? 'ew-resize' : c === 'y' ? 'ns-resize' : 'move'
 
-  const stroke      = ghost ? '#9ca3af' : selected ? '#3b82f6' : '#1f2330'
+  const showBugsAppearance = bugsAffected && !ghost
+  const stroke      = showBugsAppearance ? BUGS_STATUS_COLOR : ghost ? '#9ca3af' : selected ? '#3b82f6' : '#1f2330'
   const strokeWidth = ghost ? 1.6 : thickness
-  const dash        = dashArray(style, thickness)
+  const dash        = showBugsAppearance ? `${thickness * 4} ${thickness * 2.5}` : dashArray(style, thickness)
 
   return (
     <g
@@ -485,7 +488,7 @@ export default function Connector({
         strokeLinejoin="round"
         markerStart={!ghost && arrowStart ? `url(#${arrowId})` : undefined}
         markerEnd={!ghost && arrowEnd ? `url(#${arrowId})` : undefined}
-        className="connector-line"
+        className={`connector-line${showBugsAppearance ? ' status-bugs' : ''}`}
       />
 
       {/* ── Bezier guide lines (curved only) ─────────────────────────────── */}

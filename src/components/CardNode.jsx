@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { getStatusColor } from '../lib/status'
+import { BUGS_STATUS_COLOR, getStatusColor, isBugsStatus } from '../lib/status'
 import { getOptionColor } from '../lib/options'
 import ShapeEditorInner from './ShapeEditorInner'
 import TableNode from './TableNode'
@@ -175,6 +175,9 @@ export default function CardNode({
   const showHandles = selected || hovered || linkTarget
   const displayH = editH ?? card.height
   const displayW = card.width
+  const hasBugsStatus = isBugsStatus(card.status)
+  const showBugsAppearance = hasBugsStatus && !ghost
+  const statusClass = showBugsAppearance ? ' status-bugs' : ''
 
   // Shared: link handles on all four sides
   const handles = !ghost && showHandles && (
@@ -220,7 +223,7 @@ export default function CardNode({
   if (nodeShape === 'table') {
     return (
       <div
-        className={`card-node table-node${selected ? ' selected' : ''}${linkTarget ? ' link-target' : ''}${searchPulse ? ' search-pulse' : ''}${ghost ? ' ghost-node' : ''}`}
+        className={`card-node table-node${statusClass}${selected ? ' selected' : ''}${linkTarget ? ' link-target' : ''}${searchPulse ? ' search-pulse' : ''}${ghost ? ' ghost-node' : ''}`}
         style={{ left: card.x, top: card.y, width: card.width, height: card.height }}
         onMouseDown={onMouseDown}
         onMouseEnter={onMouseEnter}
@@ -241,7 +244,7 @@ export default function CardNode({
     const image = card.description?.image
     return (
       <div
-        className={`card-node image-node${selected ? ' selected' : ''}${linkTarget ? ' link-target' : ''}${searchPulse ? ' search-pulse' : ''}${ghost ? ' ghost-node' : ''}`}
+        className={`card-node image-node${statusClass}${selected ? ' selected' : ''}${linkTarget ? ' link-target' : ''}${searchPulse ? ' search-pulse' : ''}${ghost ? ' ghost-node' : ''}`}
         style={{ left: card.x, top: card.y, width: displayW, height: displayH }}
         onMouseDown={(e) => { if (editingTitle) return; onMouseDown(e) }}
         onDoubleClick={(e) => { e.stopPropagation(); onDoubleClick() }}
@@ -278,7 +281,7 @@ export default function CardNode({
     return (
       <div
         ref={nodeRef}
-        className={`card-node text-node${selected ? ' selected' : ''}${linkTarget ? ' link-target' : ''}${searchPulse ? ' search-pulse' : ''}${ghost ? ' ghost-node' : ''}`}
+        className={`card-node text-node${statusClass}${selected ? ' selected' : ''}${linkTarget ? ' link-target' : ''}${searchPulse ? ' search-pulse' : ''}${ghost ? ' ghost-node' : ''}`}
         style={{ left: card.x, top: card.y, width: card.width, height: card.height }}
         onMouseDown={(e) => { if (editingTitle) return; onMouseDown(e) }}
         onDoubleClick={(e) => { e.stopPropagation(); setEditingTitle(true) }}
@@ -333,7 +336,7 @@ export default function CardNode({
     return (
       <div
         ref={nodeRef}
-        className={`card-node shape-node shape-${nodeShape}${selected ? ' selected' : ''}${linkTarget ? ' link-target' : ''}${searchPulse ? ' search-pulse' : ''}${ghost ? ' ghost-node' : ''}`}
+        className={`card-node shape-node shape-${nodeShape}${statusClass}${selected ? ' selected' : ''}${linkTarget ? ' link-target' : ''}${searchPulse ? ' search-pulse' : ''}${ghost ? ' ghost-node' : ''}`}
         style={{ left: card.x, top: card.y, width: displayW, height: displayH }}
         onMouseDown={(e) => { if (editingTitle) return; onMouseDown(e) }}
         onDoubleClick={(e) => { e.stopPropagation(); setEditingTitle(true) }}
@@ -344,7 +347,7 @@ export default function CardNode({
         <div
           className="shape-bg"
           style={{
-            background: card.color || 'var(--accent-soft)',
+            backgroundColor: showBugsAppearance ? BUGS_STATUS_COLOR : (card.color || 'var(--accent-soft)'),
             ...(usesBorderRadius ? { borderRadius } : { clipPath }),
           }}
         />
@@ -384,10 +387,12 @@ export default function CardNode({
   const statusDot = card.status ? getStatusColor(card.status, statusOptions) : null
   const assigneeDot = card.assignee ? getOptionColor(card.assignee, assigneeOptions) : null
   const tagDot = card.tags?.[0] ? getOptionColor(card.tags[0], tagOptions) : null
+  const cardColor = showBugsAppearance ? BUGS_STATUS_COLOR : card.color
+  const colorBarStyle = showBugsAppearance ? 'animated' : (card.color_bar_style || 'solid')
 
   return (
     <div
-      className={`card-node shape-rect${selected ? ' selected' : ''}${linkTarget ? ' link-target' : ''}${searchPulse ? ' search-pulse' : ''}${ghost ? ' ghost-node' : ''}`}
+      className={`card-node shape-rect${statusClass}${selected ? ' selected' : ''}${linkTarget ? ' link-target' : ''}${searchPulse ? ' search-pulse' : ''}${ghost ? ' ghost-node' : ''}`}
       style={{ left: card.x, top: card.y, width: card.width, height: card.height }}
       onMouseDown={(e) => { if (editingTitle) return; onMouseDown(e) }}
       onDoubleClick={(e) => { e.stopPropagation(); onDoubleClick() }}
@@ -397,8 +402,8 @@ export default function CardNode({
       {/* .card-inner clips the color-bar's corners to match border-radius */}
       <div className="card-inner">
         <div
-          className={`card-color-bar style-${card.color_bar_style || 'solid'}`}
-          style={{ backgroundColor: card.color }}
+          className={`card-color-bar style-${colorBarStyle}`}
+          style={{ backgroundColor: cardColor }}
         />
         <div className="card-body">
           {editingTitle ? (

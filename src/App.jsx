@@ -21,7 +21,12 @@ import {
   deleteBoard,
 } from './lib/db'
 import { DEFAULT_BOARD_ID, supabase } from './lib/supabase'
-import { DEFAULT_STATUS_OPTIONS, createStatusOption, normalizeStatus } from './lib/status'
+import {
+  BUGS_STATUS_VALUE,
+  DEFAULT_STATUS_OPTIONS,
+  createStatusOption,
+  normalizeStatus,
+} from './lib/status'
 import { createOption, loadOptions, normalizeOption, saveOptions } from './lib/options'
 import './App.css'
 
@@ -32,16 +37,28 @@ const ASSIGNEE_OPTIONS_KEY = 'jiqsys-assignee-options'
 const TAG_OPTIONS_KEY = 'jiqsys-tag-options'
 
 function loadStatusOptions() {
+  const bugsDefaultOption = DEFAULT_STATUS_OPTIONS.find((option) => option.value === BUGS_STATUS_VALUE)
+  const ensureBugsStatusOption = (options) => {
+    const merged = [...options]
+    if (
+      bugsDefaultOption &&
+      !merged.some((item) => item.value?.toLowerCase() === BUGS_STATUS_VALUE.toLowerCase())
+    ) {
+      merged.push(bugsDefaultOption)
+    }
+    return merged
+  }
+
   try {
     const saved = JSON.parse(localStorage.getItem(STATUS_OPTIONS_KEY) || 'null')
     if (Array.isArray(saved) && saved.length > 0) {
       return [
         DEFAULT_STATUS_OPTIONS[0],
-        ...saved.reduce((options, item) => {
+        ...ensureBugsStatusOption(saved.reduce((options, item) => {
           const option = createStatusOption(item.label || item.value, item.color)
           if (option) options.push({ ...option, id: item.id || option.id })
           return options
-        }, []),
+        }, [])),
       ]
     }
   } catch {
