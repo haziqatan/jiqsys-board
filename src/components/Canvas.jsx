@@ -40,6 +40,47 @@ const boundsOf = (card, x = card.x, y = card.y) => ({
 
 const rangesOverlap = (a1, a2, b1, b2) => Math.max(a1, b1) <= Math.min(a2, b2)
 
+function collectBugsFlowConnectorIds(cards, connectors) {
+  const bugsCardIds = new Set(
+    cards.filter((card) => isBugsStatus(card.status)).map((card) => card.id),
+  )
+  const affectedConnectorIds = new Set()
+  if (bugsCardIds.size === 0) return affectedConnectorIds
+
+  const outgoingBySource = new Map()
+  const incomingByTarget = new Map()
+
+  for (const conn of connectors) {
+    if (!outgoingBySource.has(conn.source_card_id)) outgoingBySource.set(conn.source_card_id, [])
+    if (!incomingByTarget.has(conn.target_card_id)) incomingByTarget.set(conn.target_card_id, [])
+    outgoingBySource.get(conn.source_card_id).push(conn)
+    incomingByTarget.get(conn.target_card_id).push(conn)
+  }
+
+  const walk = (adjacency, nextCardIdFor) => {
+    const queue = [...bugsCardIds]
+    const visitedCardIds = new Set(bugsCardIds)
+
+    while (queue.length > 0) {
+      const cardId = queue.shift()
+      const nextConnectors = adjacency.get(cardId) || []
+
+      for (const conn of nextConnectors) {
+        affectedConnectorIds.add(conn.id)
+        const nextCardId = nextCardIdFor(conn)
+        if (!nextCardId || visitedCardIds.has(nextCardId)) continue
+        visitedCardIds.add(nextCardId)
+        queue.push(nextCardId)
+      }
+    }
+  }
+
+  walk(outgoingBySource, (conn) => conn.target_card_id)
+  walk(incomingByTarget, (conn) => conn.source_card_id)
+
+  return affectedConnectorIds
+}
+
 const cloneCardForPaste = (card) => {
   const {
     id,
@@ -941,9 +982,9 @@ export default function Canvas({
   const selectedConnector = selectedConnectorId
     ? connectors.find((c) => c.id === selectedConnectorId)
     : null
-  const bugsCardIds = useMemo(
-    () => new Set(cards.filter((card) => isBugsStatus(card.status)).map((card) => card.id)),
-    [cards],
+  const bugsConnectorIds = useMemo(
+    () => collectBugsFlowConnectorIds(cards, connectors),
+    [cards, connectors],
   )
   let toolbarPos = null
   if (selectedConnector) {
@@ -1017,9 +1058,7 @@ export default function Canvas({
                 target={tgt}
                 offset={{ x: WORLD_OFFSET, y: WORLD_OFFSET }}
                 selected={selectedConnectorId === conn.id}
-                bugsAffected={
-                  bugsCardIds.has(conn.source_card_id) || bugsCardIds.has(conn.target_card_id)
-                }
+                bugsAffected={bugsConnectorIds.has(conn.id)}
                 crossingSegments={crossings}
                 onSelect={() => {
                   setSelectedConnectorId(conn.id)
