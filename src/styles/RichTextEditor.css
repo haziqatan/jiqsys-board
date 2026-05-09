@@ -80,7 +80,7 @@
 .editor-content::-webkit-scrollbar-thumb     { background: var(--border-strong); border-radius: 4px; }
 .editor-content::-webkit-scrollbar-track     { background: transparent; }
 
-.editor-content .ProseMirror p.is-editor-empty:first-child::before {
+.editor-content .ProseMirror > p.is-editor-empty:first-child::before {
   content: 'Add a description…';
   color: var(--text-soft);
   pointer-events: none;
@@ -102,6 +102,33 @@
   color: var(--accent);
   text-decoration: underline;
   text-underline-offset: 2px;
+}
+
+.editor-content table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  margin: 8px 0 10px;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+}
+.editor-content th,
+.editor-content td {
+  min-width: 64px;
+  border: 1px solid var(--border);
+  padding: 6px 8px;
+  vertical-align: top;
+  word-break: break-word;
+}
+.editor-content th {
+  background: var(--surface-2);
+  color: var(--text);
+  font-weight: 600;
+}
+.editor-content th p,
+.editor-content td p {
+  min-height: 1.4em;
+  margin: 0;
 }
 
 .editor-content ul[data-type="taskList"] {

@@ -8,6 +8,13 @@ import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import { handleClipboardImagePaste, readImageAsDataUrl } from '../lib/tiptapImages'
 import {
+  RichTable,
+  RichTableCell,
+  RichTableHeader,
+  RichTableRow,
+  createTableContent,
+} from '../lib/tiptapTable'
+import {
   IconBold,
   IconItalic,
   IconUnderline,
@@ -17,6 +24,7 @@ import {
   IconCheck,
   IconImage,
   IconLink,
+  IconTable,
 } from './Icons'
 import '../styles/RichTextEditor.css'
 
@@ -34,6 +42,10 @@ export default function RichTextEditor({ value, onChange }) {
       Underline,
       TaskList,
       TaskItem.configure({ nested: true }),
+      RichTable,
+      RichTableRow,
+      RichTableHeader,
+      RichTableCell,
     ],
     content: value || '<p></p>',
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
@@ -56,6 +68,10 @@ export default function RichTextEditor({ value, onChange }) {
 
   const addImage = (url) => {
     if (url) editor.chain().focus().setImage({ src: url }).run()
+  }
+
+  const insertTable = () => {
+    editor.chain().focus().insertContent(createTableContent()).run()
   }
 
   const promptLink = () => {
@@ -123,6 +139,13 @@ export default function RichTextEditor({ value, onChange }) {
           onClick={() => editor.chain().focus().toggleTaskList().run()}
         >
           <IconCheck />
+        </ToolbarButton>
+        <ToolbarButton
+          active={editor.isActive('table')}
+          title="Insert table"
+          onClick={insertTable}
+        >
+          <IconTable />
         </ToolbarButton>
 
         <div className="editor-divider" />
