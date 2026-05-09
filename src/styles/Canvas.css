@@ -82,6 +82,66 @@
   animation: connector-bugs-stripe 0.75s linear infinite;
 }
 
+.connectors-layer .connector-label-fo {
+  overflow: visible;
+  pointer-events: all;
+}
+
+.connector-label {
+  width: 168px;
+  height: 36px;
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 1px 4px rgba(15, 20, 35, 0.10);
+}
+
+.connector-label.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft), 0 1px 4px rgba(15, 20, 35, 0.10);
+}
+
+.connector-label-grip {
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: var(--text-soft);
+  cursor: grab;
+}
+
+.connector-label-grip:active {
+  cursor: grabbing;
+}
+
+.connector-label-grip span {
+  width: 3px;
+  height: 3px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.connector-label-input {
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 0 8px 0 0;
+}
+
+.connector-label-input::placeholder {
+  color: var(--text-soft);
+}
+
 @keyframes connector-bugs-stripe {
   from { stroke-dashoffset: 0; }
   to { stroke-dashoffset: -18; }

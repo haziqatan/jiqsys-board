@@ -1,6 +1,9 @@
 import { useEffect, useId, useState } from 'react'
 import { BUGS_STATUS_COLOR } from '../lib/status'
 
+const LABEL_W = 168
+const LABEL_H = 36
+
 // ── Pure geometry helpers ────────────────────────────────────────────────────
 
 export function rectCenter(r) {
@@ -321,12 +324,15 @@ export default function Connector({
   selected = false,
   onSelect,
   onUpdateWaypoints,
+  onUpdateLabel,
   crossingSegments = [],
   bugsAffected = false,
 }) {
   const uid = useId()
   const arrowId = `arrow-${uid}`
+  const maskId = `connector-mask-${uid}`
   const [draggingBone, setDraggingBone] = useState(null)
+  const [draggingLabel, setDraggingLabel] = useState(null)
 
   const sourceCenter = rectCenter(source)
   const targetCenter = target ? rectCenter(target) : targetPoint
@@ -345,6 +351,13 @@ export default function Connector({
   const arrowEnd   = conn?.arrow_end   ?? true
   const lineJumps  = conn?.line_jumps  ?? true
   const waypoints  = conn?.waypoints   || []
+  const hasLabel = !ghost && conn?.label_text != null
+  const defaultLabelX = ((S.x + T.x) / 2) - offset.x - LABEL_W / 2
+  const defaultLabelY = ((S.y + T.y) / 2) - offset.y - LABEL_H / 2
+  const labelX = conn?.label_x ?? defaultLabelX
+  const labelY = conn?.label_y ?? defaultLabelY
+  const labelSvgX = labelX + offset.x
+  const labelSvgY = labelY + offset.y
 
   // ── Build path string ──────────────────────────────────────────────────────
   let d
@@ -403,6 +416,28 @@ export default function Connector({
     }
   }, [draggingBone, onUpdateWaypoints])
 
+  useEffect(() => {
+    if (!draggingLabel || !onUpdateLabel) return
+    const { startClientX, startClientY, startX, startY, zoom } = draggingLabel
+
+    const onMove = (e) => {
+      const dx = (e.clientX - startClientX) / zoom
+      const dy = (e.clientY - startClientY) / zoom
+      onUpdateLabel({
+        label_x: startX + dx,
+        label_y: startY + dy,
+      })
+    }
+
+    const onUp = () => setDraggingLabel(null)
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+  }, [draggingLabel, onUpdateLabel])
+
   const handleBoneMouseDown = (e, bone) => {
     e.stopPropagation()
     e.preventDefault()
@@ -429,6 +464,31 @@ export default function Connector({
       zoom, tx, ty,
       constraint:     bone.constraint,
       startWaypoints: [...waypoints],   // snapshot
+    })
+  }
+
+  const readZoomFromEvent = (e) => {
+    const svgEl = e.currentTarget.closest('svg')
+    const worldEl = svgEl?.parentElement
+    if (!worldEl) return 1
+    const matrix = window.getComputedStyle(worldEl).transform
+    const m = matrix.match(/matrix\(([^)]+)\)/)
+    if (!m) return 1
+    const parts = m[1].split(',').map(Number)
+    return parts[0] || 1
+  }
+
+  const handleLabelDragMouseDown = (e) => {
+    if (!onUpdateLabel) return
+    e.stopPropagation()
+    e.preventDefault()
+    onSelect?.()
+    setDraggingLabel({
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      startX: labelX,
+      startY: labelY,
+      zoom: readZoomFromEvent(e),
     })
   }
 
@@ -464,6 +524,19 @@ export default function Connector({
         >
           <path d="M 0 0 L 10 5 L 0 10 z" fill={stroke} />
         </marker>
+        <mask id={maskId} maskUnits="userSpaceOnUse">
+          <rect x="0" y="0" width="100%" height="100%" fill="white" />
+          {hasLabel && (
+            <rect
+              x={labelSvgX - 4}
+              y={labelSvgY - 4}
+              width={LABEL_W + 8}
+              height={LABEL_H + 8}
+              rx="8"
+              fill="black"
+            />
+          )}
+        </mask>
       </defs>
 
       {/* Wide invisible hit area */}
@@ -488,8 +561,42 @@ export default function Connector({
         strokeLinejoin="round"
         markerStart={!ghost && arrowStart ? `url(#${arrowId})` : undefined}
         markerEnd={!ghost && arrowEnd ? `url(#${arrowId})` : undefined}
+        mask={hasLabel ? `url(#${maskId})` : undefined}
         className={`connector-line${showBugsAppearance ? ' status-bugs' : ''}`}
       />
+
+      {hasLabel && (
+        <foreignObject
+          x={labelSvgX}
+          y={labelSvgY}
+          width={LABEL_W}
+          height={LABEL_H}
+          className="connector-label-fo"
+        >
+          <div className={`connector-label${selected ? ' selected' : ''}`}>
+            <button
+              type="button"
+              className="connector-label-grip"
+              title="Move text"
+              onMouseDown={handleLabelDragMouseDown}
+            >
+              <span />
+              <span />
+              <span />
+            </button>
+            <input
+              className="connector-label-input"
+              value={conn.label_text || ''}
+              placeholder="Text"
+              onMouseDown={(e) => {
+                e.stopPropagation()
+                onSelect?.()
+              }}
+              onChange={(e) => onUpdateLabel?.({ label_text: e.target.value })}
+            />
+          </div>
+        </foreignObject>
+      )}
 
       {/* ── Bezier guide lines (curved only) ─────────────────────────────── */}
       {shape === 'curved' && bones.map((bone, i) => {

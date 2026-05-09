@@ -8,6 +8,7 @@ import {
   IconRounded,
   IconCurved,
   IconJump,
+  IconText,
   IconTrash,
 } from './Icons'
 import '../styles/ConnectorToolbar.css'
@@ -41,13 +42,14 @@ function arrowKey(c) {
   return 'none'
 }
 
-export default function ConnectorToolbar({ connector, onUpdate, onDelete, screenX, screenY }) {
+export default function ConnectorToolbar({ connector, onUpdate, onDelete, onAddLabel, screenX, screenY }) {
   if (!connector) return null
   const ak = arrowKey(connector)
   const shape = connector.shape || 'orthogonal'
   const style = connector.style || 'solid'
   const thickness = connector.thickness ?? 2
   const lineJumps = connector.line_jumps ?? true
+  const hasLabel = connector.label_text != null
 
   return (
     <div className="conn-toolbar" style={{ left: screenX, top: screenY }}>
@@ -123,6 +125,24 @@ export default function ConnectorToolbar({ connector, onUpdate, onDelete, screen
           </div>
         </>
       )}
+
+      <div className="conn-divider" />
+
+      <div className="conn-group">
+        <button
+          className={`ct-btn ${hasLabel ? 'active' : ''}`}
+          title="Connector text"
+          onClick={() => {
+            if (hasLabel) {
+              onUpdate({ label_text: null, label_x: null, label_y: null })
+            } else {
+              onAddLabel?.()
+            }
+          }}
+        >
+          <IconText />
+        </button>
+      </div>
 
       <div className="conn-divider" />
 

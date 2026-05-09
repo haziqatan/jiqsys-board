@@ -1139,6 +1139,9 @@ export default function Canvas({
                 onUpdateWaypoints={(waypoints) =>
                   onUpdateConnector(conn.id, { waypoints })
                 }
+                onUpdateLabel={(patch) =>
+                  onUpdateConnector(conn.id, patch)
+                }
               />
             )
           })}
@@ -1262,6 +1265,18 @@ export default function Canvas({
           screenX={toolbarPos.x}
           screenY={toolbarPos.y}
           onUpdate={(patch) => onUpdateConnector(selectedConnector.id, patch)}
+          onAddLabel={() => {
+            const src = cardsById[selectedConnector.source_card_id]
+            const tgt = cardsById[selectedConnector.target_card_id]
+            if (!src || !tgt) return
+            const sAnchor = pickAnchor(src, rectCenter(tgt), selectedConnector.source_side)
+            const tAnchor = pickAnchor(tgt, rectCenter(src), selectedConnector.target_side)
+            onUpdateConnector(selectedConnector.id, {
+              label_text: 'Text',
+              label_x: (sAnchor.x + tAnchor.x) / 2 - 84,
+              label_y: (sAnchor.y + tAnchor.y) / 2 - 18,
+            })
+          }}
           onDelete={() => {
             onDeleteConnector(selectedConnector.id)
             setSelectedConnectorId(null)
