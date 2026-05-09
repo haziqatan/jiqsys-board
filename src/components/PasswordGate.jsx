@@ -11,9 +11,12 @@ import {
 import { requestResetOtp, verifyResetOtp } from '../lib/otp'
 import '../styles/PasswordGate.css'
 
+const canSetUpPassword = () =>
+  import.meta.env.DEV || import.meta.env.VITE_ALLOW_PASSWORD_SETUP === 'true'
+
 // Stages:
 //  • 'checking'     – fresh browser, checking whether a shared lock exists
-//  • 'setup'        – first-time visit, no password yet
+//  • 'setup'        – first-time/local setup, only when explicitly allowed
 //  • 'login'        – locked, ask for password
 //  • 'otp-request'  – user clicked "Forgot password?", confirm sending email
 //  • 'otp-enter'    – OTP sent, user types the 6-digit code
@@ -38,10 +41,10 @@ export default function PasswordGate({ children }) {
       try {
         const exists = await syncPasswordState()
         if (cancelled) return
-        if (!unlocked) setStage(exists ? 'login' : 'setup')
+        if (!unlocked) setStage(exists || !canSetUpPassword() ? 'login' : 'setup')
       } catch (err) {
         console.warn('Could not check shared board lock:', err)
-        if (!cancelled) setStage(hasPassword() ? 'login' : 'setup')
+        if (!cancelled) setStage(hasPassword() || !canSetUpPassword() ? 'login' : 'setup')
       }
     })()
     return () => {
@@ -115,6 +118,9 @@ export default function PasswordGate({ children }) {
       markUnlocked()
       resetForm()
       setUnlocked(true)
+    } catch (err) {
+      console.warn('Could not verify board password:', err)
+      setError('Could not check the password. Please try again in a moment.')
     } finally {
       setBusy(false)
     }
