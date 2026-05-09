@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import {
   hasPassword,
   isUnlocked,
+  syncPasswordState,
   setPassword,
   verifyPassword,
   markUnlocked,
@@ -11,12 +12,13 @@ import { requestResetOtp, verifyResetOtp } from '../lib/otp'
 import '../styles/PasswordGate.css'
 
 // Stages:
+//  • 'checking'     – fresh browser, checking whether a shared lock exists
 //  • 'setup'        – first-time visit, no password yet
 //  • 'login'        – locked, ask for password
 //  • 'otp-request'  – user clicked "Forgot password?", confirm sending email
 //  • 'otp-enter'    – OTP sent, user types the 6-digit code
 //  • 'otp-set'      – OTP verified, choose a new password
-const initialStage = () => (hasPassword() ? 'login' : 'setup')
+const initialStage = () => 'checking'
 
 export default function PasswordGate({ children }) {
   const [unlocked, setUnlocked] = useState(() => isUnlocked())
@@ -28,6 +30,24 @@ export default function PasswordGate({ children }) {
   const [info, setInfo] = useState('')
   const [busy, setBusy] = useState(false)
   const inputRef = useRef(null)
+
+  useEffect(() => {
+    if (stage !== 'checking') return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const exists = await syncPasswordState()
+        if (cancelled) return
+        if (!unlocked) setStage(exists ? 'login' : 'setup')
+      } catch (err) {
+        console.warn('Could not check shared board lock:', err)
+        if (!cancelled) setStage(hasPassword() ? 'login' : 'setup')
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [stage, unlocked])
 
   // Auto-focus the first relevant input when the stage changes.
   useEffect(() => {
@@ -179,6 +199,15 @@ export default function PasswordGate({ children }) {
 
   const card = (() => {
     switch (stage) {
+      case 'checking':
+        return (
+          <div className="pg-card">
+            <div className="pg-icon-wrap"><LockIcon size={22} /></div>
+            <h1 className="pg-title">Checking lock</h1>
+            <p className="pg-sub">Looking for this board's saved password.</p>
+          </div>
+        )
+
       case 'setup':
         return (
           <form className="pg-card" onSubmit={handleSetup} autoComplete="off">

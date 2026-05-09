@@ -1,3 +1,5 @@
+import { DEFAULT_BOARD_ID, supabase } from './supabase'
+
 // ─── Client-side board lock ─────────────────────────────────────────────
 //
 // Honest disclaimer: this is a *deterrent*, not a security wall. Anyone with
@@ -24,6 +26,7 @@ const UNLOCK_KEY   = 'jiqsys-unlock'   // unix-ms timestamp string
 const SESSION_HOURS = 24
 const PBKDF2_ITER   = 200000           // ~50ms on a modern CPU
 const HASH_BYTES    = 32
+const REMOTE_LOCK_ID = import.meta.env.VITE_LOCK_ID || DEFAULT_BOARD_ID || 'default'
 
 // (Recovery is now handled by a server-side OTP — see /api/send-otp.js
 // and /api/verify-otp.js. The recipient emails live exclusively in
@@ -63,15 +66,87 @@ async function pbkdf2(text, salt, iterations = PBKDF2_ITER, byteLength = HASH_BY
 
 // ── public api ──
 
-export function hasPassword() {
-  try {
-    const raw = localStorage.getItem(PASSWORD_KEY)
-    if (!raw) return false
-    const parsed = JSON.parse(raw)
-    return !!(parsed?.hashB64 && parsed?.saltB64)
-  } catch {
-    return false
+function normalizePasswordRecord(record) {
+  if (!record?.hashB64 || !record?.saltB64) return null
+  return {
+    saltB64: record.saltB64,
+    hashB64: record.hashB64,
+    iter: record.iter || PBKDF2_ITER,
   }
+}
+
+function readLocalPasswordRecord() {
+  try {
+    return normalizePasswordRecord(JSON.parse(localStorage.getItem(PASSWORD_KEY) || 'null'))
+  } catch {
+    return null
+  }
+}
+
+function writeLocalPasswordRecord(record) {
+  const normalized = normalizePasswordRecord(record)
+  if (!normalized) return
+  localStorage.setItem(PASSWORD_KEY, JSON.stringify(normalized))
+}
+
+function toRemoteRecord(record) {
+  const normalized = normalizePasswordRecord(record)
+  if (!normalized) return null
+  return {
+    id: REMOTE_LOCK_ID,
+    salt_b64: normalized.saltB64,
+    hash_b64: normalized.hashB64,
+    iter: normalized.iter,
+    updated_at: new Date().toISOString(),
+  }
+}
+
+function fromRemoteRecord(record) {
+  if (!record?.hash_b64 || !record?.salt_b64) return null
+  return normalizePasswordRecord({
+    saltB64: record.salt_b64,
+    hashB64: record.hash_b64,
+    iter: record.iter,
+  })
+}
+
+async function fetchRemotePasswordRecord() {
+  const { data, error } = await supabase
+    .from('app_locks')
+    .select('salt_b64, hash_b64, iter')
+    .eq('id', REMOTE_LOCK_ID)
+    .maybeSingle()
+  if (error) throw error
+  return fromRemoteRecord(data)
+}
+
+async function saveRemotePasswordRecord(record) {
+  const remote = toRemoteRecord(record)
+  if (!remote) throw new Error('Invalid password record.')
+  const { error } = await supabase
+    .from('app_locks')
+    .upsert(remote, { onConflict: 'id' })
+  if (error) throw error
+}
+
+export async function syncPasswordState() {
+  const local = readLocalPasswordRecord()
+  const remote = await fetchRemotePasswordRecord()
+  if (remote) {
+    writeLocalPasswordRecord(remote)
+    return true
+  }
+
+  if (local) {
+    await saveRemotePasswordRecord(local)
+    return true
+  }
+
+  return false
+}
+
+export function hasPassword() {
+  return !!readLocalPasswordRecord()
 }
 
 export async function setPassword(plain) {
@@ -80,21 +155,26 @@ export async function setPassword(plain) {
   }
   const salt = crypto.getRandomValues(new Uint8Array(16))
   const hash = await pbkdf2(plain, salt)
-  localStorage.setItem(PASSWORD_KEY, JSON.stringify({
+  const record = {
     saltB64: bytesToBase64(salt),
     hashB64: bytesToBase64(hash),
     iter:    PBKDF2_ITER,
-  }))
+  }
+  writeLocalPasswordRecord(record)
+  await saveRemotePasswordRecord(record)
   markUnlocked()
 }
 
 export async function verifyPassword(plain) {
   if (typeof plain !== 'string' || plain.length === 0) return false
-  const raw = localStorage.getItem(PASSWORD_KEY)
-  if (!raw) return false
-  let parsed
-  try { parsed = JSON.parse(raw) } catch { return false }
-  if (!parsed?.hashB64 || !parsed?.saltB64) return false
+  let parsed = await fetchRemotePasswordRecord()
+  if (parsed) {
+    writeLocalPasswordRecord(parsed)
+  }
+  if (!parsed) {
+    parsed = readLocalPasswordRecord()
+  }
+  if (!parsed) return false
   const expected = base64ToBytes(parsed.hashB64)
   const computed = await pbkdf2(
     plain,
