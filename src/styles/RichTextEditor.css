@@ -159,6 +159,13 @@
   width: 16px;
   bottom: 0;
 }
+.editor-content .rte-table-column-handles {
+  position: absolute;
+  top: -20px;
+  left: 0;
+  right: 0;
+  height: 16px;
+}
 .editor-content .rte-table-row-handle {
   position: absolute;
   left: 0;
@@ -167,8 +174,18 @@
   color: var(--text-soft);
   opacity: 0;
 }
+.editor-content .rte-table-column-handle {
+  position: absolute;
+  top: 0;
+  height: 16px;
+  border-radius: 5px;
+  color: var(--text-soft);
+  opacity: 0;
+}
 .editor-content .rte-table-shell:hover .rte-table-row-handle,
-.editor-content .rte-table-row-handle.active {
+.editor-content .rte-table-row-handle.active,
+.editor-content .rte-table-shell:hover .rte-table-column-handle,
+.editor-content .rte-table-column-handle.active {
   opacity: 1;
 }
 .editor-content .rte-table-row-handle::before {
@@ -180,8 +197,19 @@
   background-image: radial-gradient(currentColor 1.25px, transparent 1.25px);
   background-size: 4px 6px;
 }
+.editor-content .rte-table-column-handle::before {
+  position: absolute;
+  inset: 4px auto auto calc(50% - 9px);
+  width: 18px;
+  height: 8px;
+  content: '';
+  background-image: radial-gradient(currentColor 1.25px, transparent 1.25px);
+  background-size: 6px 4px;
+}
 .editor-content .rte-table-row-handle:hover,
-.editor-content .rte-table-row-handle.active {
+.editor-content .rte-table-row-handle.active,
+.editor-content .rte-table-column-handle:hover,
+.editor-content .rte-table-column-handle.active {
   color: #fff;
   background: #2383e2;
 }
