@@ -79,12 +79,7 @@
 }
 
 .connectors-layer .connector-line.status-bugs {
-  filter: drop-shadow(0 0 3px rgba(239, 68, 68, 0.22));
-}
-
-.connectors-layer .connector-bugs-flow {
-  pointer-events: none;
-  animation: connector-bugs-flow 1.15s linear infinite;
+  animation: connector-bugs-stripe 0.75s linear infinite;
 }
 
 .connectors-layer .connector-label-fo {
@@ -147,9 +142,9 @@
   color: var(--text-soft);
 }
 
-@keyframes connector-bugs-flow {
+@keyframes connector-bugs-stripe {
   from { stroke-dashoffset: 0; }
-  to { stroke-dashoffset: -1; }
+  to { stroke-dashoffset: -18; }
 }
 
 /* Zoom indicator -------------------------------------------------- */
