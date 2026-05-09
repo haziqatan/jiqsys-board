@@ -502,7 +502,7 @@ export default function Connector({
   const showBugsAppearance = bugsAffected && !ghost
   const stroke      = showBugsAppearance ? BUGS_STATUS_COLOR : ghost ? '#9ca3af' : selected ? '#3b82f6' : '#1f2330'
   const strokeWidth = ghost ? 1.6 : thickness
-  const dash        = showBugsAppearance ? `${thickness * 4} ${thickness * 2.5}` : dashArray(style, thickness)
+  const dash        = showBugsAppearance ? undefined : dashArray(style, thickness)
 
   return (
     <g
@@ -564,6 +564,21 @@ export default function Connector({
         mask={hasLabel ? `url(#${maskId})` : undefined}
         className={`connector-line${showBugsAppearance ? ' status-bugs' : ''}`}
       />
+
+      {showBugsAppearance && (
+        <path
+          d={d}
+          fill="none"
+          stroke="#fecaca"
+          strokeWidth={Math.max(strokeWidth + 1.5, strokeWidth * 1.8)}
+          strokeDasharray="0.16 0.84"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          pathLength={1}
+          mask={hasLabel ? `url(#${maskId})` : undefined}
+          className="connector-bugs-flow"
+        />
+      )}
 
       {hasLabel && (
         <foreignObject
