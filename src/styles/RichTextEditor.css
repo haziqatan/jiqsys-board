@@ -104,6 +104,11 @@
   text-underline-offset: 2px;
 }
 
+.editor-content .rte-table-shell {
+  position: relative;
+  margin: 10px 28px 32px 22px;
+}
+
 .editor-content table {
   width: 100%;
   table-layout: fixed;
@@ -111,6 +116,9 @@
   margin: 8px 0 10px;
   overflow: hidden;
   border-radius: var(--radius-sm);
+}
+.editor-content .rte-table-shell table {
+  margin: 0;
 }
 .editor-content th,
 .editor-content td {
@@ -129,6 +137,85 @@
 .editor-content td p {
   min-height: 1.4em;
   margin: 0;
+}
+.editor-content th.selectedCell,
+.editor-content td.selectedCell {
+  position: relative;
+}
+.editor-content th.selectedCell::after,
+.editor-content td.selectedCell::after {
+  position: absolute;
+  inset: -1px;
+  z-index: 1;
+  content: '';
+  pointer-events: none;
+  background: rgba(35, 131, 226, 0.08);
+  box-shadow: inset 0 0 0 2px #2383e2;
+}
+.editor-content .rte-table-row-handles {
+  position: absolute;
+  top: 0;
+  left: -20px;
+  width: 16px;
+  bottom: 0;
+}
+.editor-content .rte-table-row-handle {
+  position: absolute;
+  left: 0;
+  width: 16px;
+  border-radius: 5px;
+  color: var(--text-soft);
+  opacity: 0;
+}
+.editor-content .rte-table-shell:hover .rte-table-row-handle,
+.editor-content .rte-table-row-handle.active {
+  opacity: 1;
+}
+.editor-content .rte-table-row-handle::before {
+  position: absolute;
+  inset: calc(50% - 9px) 4px auto;
+  width: 8px;
+  height: 18px;
+  content: '';
+  background-image: radial-gradient(currentColor 1.25px, transparent 1.25px);
+  background-size: 4px 6px;
+}
+.editor-content .rte-table-row-handle:hover,
+.editor-content .rte-table-row-handle.active {
+  color: #fff;
+  background: #2383e2;
+}
+.editor-content .rte-table-add {
+  position: absolute;
+  z-index: 3;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface-2);
+  color: var(--text-soft);
+  font-size: 18px;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 120ms var(--ease), background 120ms var(--ease), color 120ms var(--ease);
+}
+.editor-content .rte-table-shell:hover .rte-table-add,
+.editor-content .rte-table-add:focus-visible {
+  opacity: 1;
+}
+.editor-content .rte-table-add:hover {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+.editor-content .rte-table-add-row {
+  left: 0;
+  right: 0;
+  bottom: -28px;
+  height: 22px;
+}
+.editor-content .rte-table-add-column {
+  top: 0;
+  right: -28px;
+  bottom: 0;
+  width: 22px;
 }
 
 .editor-content ul[data-type="taskList"] {

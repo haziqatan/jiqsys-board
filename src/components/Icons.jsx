@@ -433,42 +433,6 @@ export const IconTable = (p) => (
   </svg>
 )
 
-export const IconTableRowPlus = (p) => (
-  <svg {...base} {...p}>
-    <rect x="3" y="5" width="14" height="12" rx="2" {...duo} />
-    <rect x="3" y="5" width="14" height="12" rx="2" />
-    <path d="M3 9h14M3 13h14M8 5v12M12 5v12" />
-    <path d="M17 19h4M19 17v4" />
-  </svg>
-)
-
-export const IconTableRowMinus = (p) => (
-  <svg {...base} {...p}>
-    <rect x="3" y="5" width="14" height="12" rx="2" {...duo} />
-    <rect x="3" y="5" width="14" height="12" rx="2" />
-    <path d="M3 9h14M3 13h14M8 5v12M12 5v12" />
-    <path d="M17 19h4" />
-  </svg>
-)
-
-export const IconTableColumnPlus = (p) => (
-  <svg {...base} {...p}>
-    <rect x="3" y="5" width="14" height="12" rx="2" {...duo} />
-    <rect x="3" y="5" width="14" height="12" rx="2" />
-    <path d="M3 9h14M3 13h14M8 5v12M12 5v12" />
-    <path d="M20 5v4M18 7h4" />
-  </svg>
-)
-
-export const IconTableColumnMinus = (p) => (
-  <svg {...base} {...p}>
-    <rect x="3" y="5" width="14" height="12" rx="2" {...duo} />
-    <rect x="3" y="5" width="14" height="12" rx="2" />
-    <path d="M3 9h14M3 13h14M8 5v12M12 5v12" />
-    <path d="M18 7h4" />
-  </svg>
-)
-
 export const IconHierarchy = (p) => (
   <svg {...base} {...p}>
     {/* root */}

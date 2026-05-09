@@ -1,4 +1,4 @@
-import { useEditor, EditorContent, useEditorState } from '@tiptap/react'
+import { useEditor, EditorContent } from '@tiptap/react'
 import { useEffect, useRef } from 'react'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
@@ -6,7 +6,6 @@ import Link from '@tiptap/extension-link'
 import Underline from '@tiptap/extension-underline'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
-import { addColumnAfter, addRowAfter, deleteColumn, deleteRow, isInTable } from '@tiptap/pm/tables'
 import { handleClipboardImagePaste, readImageAsDataUrl } from '../lib/tiptapImages'
 import {
   RichTable,
@@ -27,10 +26,6 @@ import {
   IconImage,
   IconLink,
   IconTable,
-  IconTableColumnMinus,
-  IconTableColumnPlus,
-  IconTableRowMinus,
-  IconTableRowPlus,
 } from './Icons'
 import '../styles/RichTextEditor.css'
 
@@ -63,34 +58,6 @@ export default function RichTextEditor({ value, onChange }) {
         }),
     },
   })
-  const tableControls = useEditorState({
-    editor,
-    selector: ({ editor }) => {
-      if (!editor) {
-        return {
-          isInTable: false,
-          canAddColumn: false,
-          canDeleteColumn: false,
-          canAddRow: false,
-          canDeleteRow: false,
-        }
-      }
-
-      return {
-        isInTable: isInTable(editor.state),
-        canAddColumn: addColumnAfter(editor.state),
-        canDeleteColumn: deleteColumn(editor.state),
-        canAddRow: addRowAfter(editor.state),
-        canDeleteRow: deleteRow(editor.state),
-      }
-    },
-  }) || {
-    isInTable: false,
-    canAddColumn: false,
-    canDeleteColumn: false,
-    canAddRow: false,
-    canDeleteRow: false,
-  }
 
   useEffect(() => {
     editorRef.current = editor
@@ -107,22 +74,6 @@ export default function RichTextEditor({ value, onChange }) {
 
   const insertTable = () => {
     editor.chain().focus().insertContent(createTableContent()).run()
-  }
-
-  const addTableRow = () => {
-    editor.chain().focus().addRichTableRowAfter().run()
-  }
-
-  const removeTableRow = () => {
-    editor.chain().focus().deleteRichTableRow().run()
-  }
-
-  const addTableColumn = () => {
-    editor.chain().focus().addRichTableColumnAfter().run()
-  }
-
-  const removeTableColumn = () => {
-    editor.chain().focus().deleteRichTableColumn().run()
   }
 
   const promptLink = () => {
@@ -202,39 +153,6 @@ export default function RichTextEditor({ value, onChange }) {
         <div className="editor-divider" />
 
         <ToolbarButton
-          active={tableControls.isInTable}
-          disabled={!tableControls.canAddRow}
-          title="Add row below"
-          onClick={addTableRow}
-        >
-          <IconTableRowPlus />
-        </ToolbarButton>
-        <ToolbarButton
-          disabled={!tableControls.canDeleteRow}
-          title="Remove row"
-          onClick={removeTableRow}
-        >
-          <IconTableRowMinus />
-        </ToolbarButton>
-        <ToolbarButton
-          active={tableControls.isInTable}
-          disabled={!tableControls.canAddColumn}
-          title="Add column right"
-          onClick={addTableColumn}
-        >
-          <IconTableColumnPlus />
-        </ToolbarButton>
-        <ToolbarButton
-          disabled={!tableControls.canDeleteColumn}
-          title="Remove column"
-          onClick={removeTableColumn}
-        >
-          <IconTableColumnMinus />
-        </ToolbarButton>
-
-        <div className="editor-divider" />
-
-        <ToolbarButton
           active={editor.isActive('link')}
           title="Link"
           onClick={promptLink}
@@ -268,7 +186,7 @@ export default function RichTextEditor({ value, onChange }) {
   )
 }
 
-function ToolbarButton({ active, disabled = false, title, onClick, children }) {
+function ToolbarButton({ active, title, onClick, children }) {
   return (
     <button
       type="button"
@@ -276,7 +194,6 @@ function ToolbarButton({ active, disabled = false, title, onClick, children }) {
       title={title}
       onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}
-      disabled={disabled}
     >
       {children}
     </button>
